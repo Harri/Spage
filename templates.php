@@ -495,6 +495,7 @@ $admin_edit_template = '<!doctype html>
 			<button type="submit">Submit</button>
 		</fieldset>
 	</form>
+	Or <a href="spage.php?delete_page={{url}}.txt">delete</a> the page.
 	<footer>
 	</footer>
 </body>

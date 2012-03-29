@@ -114,6 +114,22 @@ class Spage {
 		return array();
 	}
 
+
+	/**
+	* Moves page (*.html and *.txt) to trash/ directory.
+	* 
+	* @access public
+	* @param string $page
+	* @return void
+	*/
+	public function delete_page($page) {
+		if (!strpbrk($page, '/\\') and $this->ends_with($page, '.txt')) {
+			rename($page, 'trash/'.$page);
+			$page = str_replace('.txt', '.html', $page);
+			rename($page, 'trash/'.$page);
+		}
+	}
+
 	/**
 	* Helper function to verify if string ends with given substring
 	* 
@@ -209,6 +225,36 @@ else if (isset($_GET['edit_page'])) {
 		echo $m->render($admin_page_list_template, $data);
 	}
 }
+else if (isset($_GET['delete_page'])) {
+	$page->delete_page($_GET['delete_page']);
+	echo $m->render($admin_template, array('message' => 'Page deleted.'));
+}
 else {
 	echo $m->render($admin_template, array());
 }
+
+
+/*
+
+Copyright (C) 2012 Harri Paavola
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+*/
