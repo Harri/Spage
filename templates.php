@@ -40,8 +40,8 @@ $admin_template = '<!doctype html>
 	<meta charset="utf-8">
 	<title>Create new page - Spage</title>
 	<link rel="stylesheet" href="style.css">
-	<script type="text/javascript" src="showdown.js"></script>
-	<script type="text/javascript" src="showdown-gui.js"></script>
+	<script type="text/javascript" src="lib/showdown.js"></script>
+	<script type="text/javascript" src="lib/showdown-gui.js"></script>
 </head>
 <body>
 	<header>

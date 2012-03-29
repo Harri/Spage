@@ -11,8 +11,8 @@
  * @author Harri Paavola {@link http://artturi.org/}
  */
 
-require('markdown.php');
-require('mustache.php');
+require('lib/markdown.php');
+require('lib/mustache.php');
 require('templates.php');
 
 define('SPAGE_VERSION',  "1.0" ); # 2012-03-28
