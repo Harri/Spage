@@ -14,7 +14,7 @@ Configuration and usage
 -
 There is no need to do any configuration, but protecting `spage.php` and trash directory using `.htaccess` or similar means is recommended.
 
-Editing `template.php` and `style.css` is also something you might want to do.
+Editing `templates.php` and `style.css` is also something you might want to do.
 
 All pages are created to the same directory where `spage.php` is, so all pages must have unique name.
 
