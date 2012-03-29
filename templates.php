@@ -3,6 +3,7 @@ $default_template = '<!doctype html>
 <html class="page active" lang="en">
 	<head>
 	<meta charset="utf-8">
+	<meta name="dcterms.created" content="{{date}}">
 	<title>{{title}}</title>
 	<link rel="stylesheet" href="style.css">
 </head>
@@ -12,7 +13,6 @@ $default_template = '<!doctype html>
 	</header>
 	{{{content_html}}}
 	<footer>
-		<span id="page_creation_date">{{date}}</span> {{time}}
 	</footer>
 </body>
 </html>';

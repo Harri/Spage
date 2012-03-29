@@ -3,12 +3,12 @@
 /**
  * Simple static file page creation system
  *
- * {@link http://artturi.org/spage/}
+ * {@link https://github.com/Harri/Spage}
  *
  * Spage does not need database, it lets web servers do what they do best;
- * serve flat files. Depends on Markdown and Mustache.
+ * serve flat files.
  *
- * @author Harri Paavola {@link http://artturi.org/}
+ * @author Harri Paavola {@link https://plus.google.com/108215938928178695462/about}
  */
 
 require('lib/markdown.php');
@@ -152,9 +152,7 @@ $m = new Mustache;
 /* Data is POSTed here when creating new pages and when editing existing ones. */
 if (isset($_POST['url'], $_POST['title'], $_POST['content'])) {
 	
-	$data = array(	'url' 		=> urlencode($_POST['url']),
-					'title' 	=> htmlspecialchars($_POST['title']),
-					'content'	=> $_POST['content']);
+	$data = array('url' => urlencode($_POST['url']), 'title' => htmlspecialchars($_POST['title']), 'content' => $_POST['content']);
 
 	if (isset($_POST['overwrite']) and $_POST['overwrite']=="true") {
 		if (isset($_POST['date'], $_POST['time'])) {
@@ -180,8 +178,8 @@ else if (isset($_GET['create_page_list'])) {
 	
 	// Goes through all files in current dir.
 	// If file name ends with .html and is not index.html,
-	// gets title tag content and creation date from span element.
-	// Creates list with all post names, post file names and creation dates.
+	// gets title tag content and creation date from meta element.
+	// Creates list with all page names, page file names and creation dates.
 	foreach ($dir as $name) {
 		if ($page->ends_with($name, '.html') and $name != 'index.html') {
 			$file_content = file_get_contents($name);
@@ -189,8 +187,8 @@ else if (isset($_GET['create_page_list'])) {
 			$real_name = explode('<title>', $file_content);
 			$real_name = explode('</title>', $real_name[1]);
 			
-			$date = explode('<span id="page_creation_date">', $file_content);
-			$date = explode('</span>', $date[1]);
+			$date = explode('<meta name="dcterms.created" content="', $file_content);
+			$date = explode('">', $date[1]);
 			
 			$page_list[] = array($date[0], $real_name[0], $name);
 		}
