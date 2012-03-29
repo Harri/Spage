@@ -12,7 +12,6 @@ $default_template = '<!doctype html>
 	</header>
 	{{{content_html}}}
 	<footer>
-		<a href="mailto:harri.paavola@gmail.com">harri.paavola@gmail.com</a>
 		<span id="page_creation_date">{{date}}</span> {{time}}
 	</footer>
 </body>
@@ -31,7 +30,6 @@ $page_list_template = '<!doctype html>
 	</header>
 	{{{content_html}}}
 	<footer>
-		<a href="mailto:harri.paavola@gmail.com">harri.paavola@gmail.com</a>
 	</footer>
 </body>
 </html>';
