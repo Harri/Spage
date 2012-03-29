@@ -19,7 +19,7 @@ define('SPAGE_VERSION',  "1.0" ); # 2012-03-28
 
 class Spage {	
 	/**
-	* Adds new page. Does not overwrite existing files, unless told so.
+	* Adds new page and updates RSS feed. Does not overwrite existing files, unless told so.
 	* 
 	* @access public
 	* @param array $data
@@ -33,13 +33,14 @@ class Spage {
 			$data['url'] = $data['url'];
 			$data['date'] = date('Y-m-d');
 			$data['time'] = date('H:i');
+			$data['timestamp'] = time();
 		}
 		else {
 			$data['content_html'] = Markdown($data['content']);
 			$data['date_edited'] = date('Y-m-d');
 			$data['time_edited'] = date('H:i');
 		}
-
+		
 		if (!$overwrite and file_exists($data['url'].'.html') or !$file_handle = fopen($data['url'].'.html', 'w') or !$plain_file_handle = fopen($data['url'].'.txt', 'w')) {
 			return 1;
 		}
@@ -48,7 +49,8 @@ class Spage {
 			fwrite($file_handle, $m->render($template, $data));
 			fclose($file_handle);
 			fwrite($plain_file_handle, serialize($data));
-			fclose($plain_file_handle);			
+			fclose($plain_file_handle);
+			$this->create_rss_feed($GLOBALS['rss_template']);
 			return 0;
 		}
 	}
@@ -64,7 +66,7 @@ class Spage {
 	public function create_page_list($data, $template) {
 		$data['content_html'] = '<ol>';
 		foreach ($data['content'] as $page) {
-			$data['content_html'] .= '<li><a href="'.$page[2].'">'.$page[1].'</a> ('.$page[0].')</li>';
+			$data['content_html'] .= '<li><a href="'.$page['url'].'.html">'.$page['title'].'</a> ('.$page['date'].')</li>';
 		}
 		$data['content_html'] .= '</ol>';
 		
@@ -129,6 +131,37 @@ class Spage {
 			rename($page, 'trash/'.$page);
 		}
 	}
+	
+	/**
+	* Creates (and updates) RSS page. Returns 0 if everything went ok.
+	* 
+	* @access public
+	* @return int
+	*/
+	public function create_rss_feed($template) {
+		$dir = scandir('.');
+		$page_list = array();
+		
+		foreach ($dir as $name) {
+			if ($this->ends_with($name, '.txt')) {
+				$page_list[] = unserialize(file_get_contents($name));
+			}
+		}
+		$page_list = $this->aasort($page_list, 'timestamp');
+		$page_list = array_reverse($page_list);;
+		array_splice($page_list, 5);
+		$data = array('pages' => $page_list);
+		if (!$file_handle = fopen('rss.xml', 'w')) {
+			return 1;
+		}
+		else {
+			$m = new Mustache;
+			fwrite($file_handle, $m->render($template, $data));
+			fclose($file_handle);
+			return 0;
+		}		
+		
+	}
 
 	/**
 	* Helper function to verify if string ends with given substring
@@ -144,6 +177,29 @@ class Spage {
 		return (substr($haystack, $start) === $needle);
 	}
 	
+	/**
+	* Helper function to sort multidimensional array. Returns given array in sorted order
+	* 
+	* @access public
+	* @param array $array
+	* @param string $key
+	* @return array
+	*/
+	function aasort (&$array, $key) {
+		$sorter=array();
+		$ret=array();
+		reset($array);
+		foreach ($array as $ii => $va) {
+			$sorter[$ii]=$va[$key];
+		}
+		asort($sorter);
+		foreach ($sorter as $ii => $va) {
+			$ret[$ii]=$array[$ii];
+		}
+		return $ret;
+	}
+
+	
 }
 
 $page = new Spage;
@@ -157,6 +213,7 @@ if (isset($_POST['url'], $_POST['title'], $_POST['content'])) {
 		if (isset($_POST['date'], $_POST['time'])) {
 			$data['date'] = htmlspecialchars($_POST['date']);
 			$data['time'] = htmlspecialchars($_POST['time']);
+			$data['timestamp'] = htmlspecialchars($_POST['timestamp']);
 		}
 		$overwrite = TRUE;
 	}
@@ -179,15 +236,13 @@ else if (isset($_GET['create_page_list'])) {
 	$page_list = array();
 	
 	foreach ($dir as $name) {
-		if ($page->ends_with($name, '.html') and $name != 'index.html') {
-			$file_content = file_get_contents($name);
-			$real_name = explode('<title>', $file_content);
-			$real_name = explode('</title>', $real_name[1]);
-			$date = explode('<meta name="dcterms.created" content="', $file_content);
-			$date = explode('">', $date[1]);
-			$page_list[] = array($date[0], $real_name[0], $name);
+		if ($page->ends_with($name, '.txt')) {
+			$page_list[] = unserialize(file_get_contents($name));
 		}
 	}
+	
+	$page_list = $page->aasort($page_list, 'timestamp');
+	$page_list = array_reverse($page_list);;
 	
 	$data = array('content' => $page_list);
 	$page->create_page_list($data, $page_list_template);

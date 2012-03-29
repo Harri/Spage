@@ -125,6 +125,7 @@ $admin_edit_template = '<!doctype html>
 			<input name="overwrite" id="overwrite" value="true" type="hidden">
 			<input name="date" id="date" value="{{date}}" type="hidden">
 			<input name="time" id="time" value="{{time}}" type="hidden">
+			<input name="timestamp" id="timestamp" value="{{timestamp}}" type="hidden">
 			<label for="content">Content</label>
 			<textarea id="content" name="content" rows="20" required="required">{{content}}</textarea>
 		</fieldset>
@@ -175,3 +176,19 @@ $admin_page_list_template = '<!doctype html>
 	</footer>
 </body>
 </html>';
+
+$rss_template = '<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+	<channel>
+		<title>Spage</title>
+		<description>Spage news feed</description>
+		<link>http://spage.example</link>
+		{{#pages}}
+		<item>
+			<title>{{title}}</title>
+			<description>{{content_html}}</description>
+			<link>http://spage.example/{{url}}</link>
+		</item>
+		{{/pages}}
+	</channel>
+</rss>';

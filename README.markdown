@@ -8,6 +8,7 @@ Simple flat file CMS written in PHP. Each page gets its own `*.html` file which 
 * Individual pages can be edited and deleted
     * Deleted pages are just moved to `trash` directory.
 * All pages can be rebuilt if there is a need to change the markup
+* Generates RSS feed
 
 Configuration and usage
 -
