@@ -24,10 +24,10 @@ class Spage {
 	* @access public
 	* @param array $data
 	* @param string $template
-	* @param bool $overwrite (default: false)
+	* @param bool $overwrite (default: FALSE)
 	* @return int
 	*/
-	public function add_new_page($data, $template, $overwrite=false) {
+	public function add_new_page($data, $template, $overwrite=FALSE) {
 		if (!$overwrite) {
 			$data['content_html'] = Markdown($data['content']);
 			$data['url'] = $data['url'];
@@ -93,7 +93,7 @@ class Spage {
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt')) {
 				$data = unserialize(file_get_contents($name));
-				$this->add_new_page($data, $template, true);
+				$this->add_new_page($data, $template, TRUE);
 			}
 		}
 	}
@@ -149,9 +149,8 @@ class Spage {
 $page = new Spage;
 $m = new Mustache;
 
-/* Data is POSTed here when creating new pages and when editing existing ones. */
 if (isset($_POST['url'], $_POST['title'], $_POST['content'])) {
-	
+	/* Creates new page. Also page edit form POSTs here.*/
 	$data = array('url' => urlencode($_POST['url']), 'title' => htmlspecialchars($_POST['title']), 'content' => $_POST['content']);
 
 	if (isset($_POST['overwrite']) and $_POST['overwrite']=="true") {
@@ -159,51 +158,49 @@ if (isset($_POST['url'], $_POST['title'], $_POST['content'])) {
 			$data['date'] = htmlspecialchars($_POST['date']);
 			$data['time'] = htmlspecialchars($_POST['time']);
 		}
-		$error_code = $page->add_new_page($data, $default_template, true);
+		$overwrite = TRUE;
 	}
 	else {
-		$error_code = $page->add_new_page($data, $default_template);
+		$overwrite = FALSE;
 	}
+	$error_code = $page->add_new_page($data, $default_template, $overwrite);
 	
 	if ($error_code===1) {
-		echo $m->render($admin_template, array('admin_title' => 'Create new page', 'message' => 'Something went wrong. Maybe the page exists already?.'));
+		$message = 'Something went wrong. Maybe the page exists already?';
 	}
 	else {
-		echo $m->render($admin_template, array('admin_title' => 'Create new page', 'message' => 'Page created.'));
+		$message = 'Page created.';
 	}
+	echo $m->render($admin_template, array('message' => $message));
 }
 else if (isset($_GET['create_page_list'])) {
+	/* Creates index.html with list of pages */
 	$dir = scandir('.');
 	$page_list = array();
 	
-	// Goes through all files in current dir.
-	// If file name ends with .html and is not index.html,
-	// gets title tag content and creation date from meta element.
-	// Creates list with all page names, page file names and creation dates.
 	foreach ($dir as $name) {
 		if ($page->ends_with($name, '.html') and $name != 'index.html') {
 			$file_content = file_get_contents($name);
-			
 			$real_name = explode('<title>', $file_content);
 			$real_name = explode('</title>', $real_name[1]);
-			
 			$date = explode('<meta name="dcterms.created" content="', $file_content);
 			$date = explode('">', $date[1]);
-			
 			$page_list[] = array($date[0], $real_name[0], $name);
 		}
 	}
 	
 	$data = array('content' => $page_list);
-	
 	$page->create_page_list($data, $page_list_template);
-	echo $m->render($admin_template, array('admin_title' => 'Create new page', 'message' => 'Page list created.'));
+	echo $m->render($admin_template, array('message' => 'Page list created.'));
 }
 else if (isset($_GET['rebuild_pages'])) {
+	/* Rebuilds given page. Can be used for example after changing page template */
 	$page->rebuild_pages($default_template);
-	echo $m->render($admin_template, array('admin_title' => 'Create new page', 'message' => 'Rebuilt pages.'));
+	echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
 }
 else if (isset($_GET['edit_page'])) {
+	/* Used for editing given page. If 'page' query parmater is set
+		admin_edit_template is shown. Othervise admin_page_list_template is used. */
 	if (isset($_GET['page'])) {
 		$data = $page->get_page(htmlspecialchars($_GET['page']));
 		echo $m->render($admin_edit_template, $data);
@@ -224,10 +221,12 @@ else if (isset($_GET['edit_page'])) {
 	}
 }
 else if (isset($_GET['delete_page'])) {
+	/* Deletes given page */
 	$page->delete_page($_GET['delete_page']);
 	echo $m->render($admin_template, array('message' => 'Page deleted.'));
 }
 else {
+	/* Shows the default view. */
 	echo $m->render($admin_template, array());
 }
 
