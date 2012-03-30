@@ -26,21 +26,27 @@ class Spage {
 	* @return int
 	*/
 	public function add_new_page($data, $template, $overwrite=FALSE) {
-		if (!$overwrite) {
-			$data['content_html'] = Markdown($data['content']);
-			$data['url'] = $data['url'];
+		$data['url'] = urlencode($data['url']);
+		$data['title'] = htmlspecialchars($data['title']);
+		$data['content_html'] = Markdown($data['content']);
+		
+		if ($overwrite) {
+			$data['date'] = htmlspecialchars($data['date']);
+			$data['time'] = htmlspecialchars($data['time']);
+			$data['timestamp'] = htmlspecialchars($data['timestamp']);
+			$data['date_edited'] = date('Y-m-d');
+			$data['time_edited'] = date('H:i');
+		}
+		else {
 			$data['date'] = date('Y-m-d');
 			$data['time'] = date('H:i');
 			$data['timestamp'] = time();
 		}
-		else {
-			$data['content_html'] = Markdown($data['content']);
-			$data['date_edited'] = date('Y-m-d');
-			$data['time_edited'] = date('H:i');
-		}
 		
-		if (!$overwrite and file_exists($data['url'].'.html') or !$file_handle = fopen($data['url'].'.html', 'w') or !$plain_file_handle = fopen($data['url'].'.txt', 'w')) {
-			return 1;
+		if (!$file_handle = fopen($data['url'].'.html', 'w') or !$plain_file_handle = fopen($data['url'].'.txt', 'w')) {
+			if ($overwrite and file_exists($data['url'].'.html')) {
+				return 1;
+			}
 		}
 		else {	
 			$m = new Mustache;
@@ -54,20 +60,27 @@ class Spage {
 	}
 	
 	/**
-	* Creates list of html pages in current directory.
+	* Creates or updates front page
 	* 
 	* @access public
 	* @param array $data
 	* @param string $template
 	* @return int
 	*/
-	public function create_frontpage($data, $template) {
+	public function create_front_page($data, $template) {
+		$dir = scandir('.');
 		$page_list = array();
-		foreach ($data['page_list'] as $page) {
-			$page_list[] = array('url' => $page['url'], 'title' => $page['title'], 'date' => $page['date']);
+	
+		foreach ($dir as $name) {
+			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
+				$page_list[] = unserialize(file_get_contents($name));
+			}
 		}
+		$page_list = $this->aasort($page_list, 'timestamp');
+		$page_list = array_reverse($page_list);
+
 		$data['page_list'] = $page_list;
-		$data['content_html'] = Markdown($data['content']);
+		$data['content_html'] = Markdown($data['front_page_content']);
 		
 		if (!$file_handle = fopen('index.html', 'w') or !$plain_file_handle = fopen('index.txt', 'w')) {
 			return 1;
@@ -92,7 +105,6 @@ class Spage {
 	public function rebuild_pages($template) {
 		$dir = scandir('.');
 		$page_list = array();
-		
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
 				$data = unserialize(file_get_contents($name));
@@ -110,7 +122,7 @@ class Spage {
 	* @return array
 	*/
 	public function get_page($page) {
-		if (!strpbrk($page, '/\\') and $this->ends_with($page, '.txt')) {
+		if (!strpbrk($page, '/\\') and $this->ends_with($page, '.txt') and is_file($page)) {
 			$data = unserialize(file_get_contents($page));
 			return $data;
 		}
@@ -126,7 +138,7 @@ class Spage {
 	* @return void
 	*/
 	public function delete_page($page) {
-		if (!strpbrk($page, '/\\') and $this->ends_with($page, '.txt')) {
+		if (!strpbrk($page, '/\\') and $this->ends_with($page, '.txt') and is_file($page)) {
 			rename($page, 'trash/'.$page);
 			$page = str_replace('.txt', '.html', $page);
 			rename($page, 'trash/'.$page);
@@ -137,9 +149,11 @@ class Spage {
 	* Creates (and updates) RSS page. Returns 0 if everything went ok.
 	* 
 	* @access public
-	* @return int
+	* @param string $template
+	* @param int $number_of_items (default: 5)
+	* @return int 
 	*/
-	public function create_rss_feed($template) {
+	public function create_rss_feed($template, $number_of_items=5) {
 		$dir = scandir('.');
 		$page_list = array();
 		
@@ -150,7 +164,7 @@ class Spage {
 		}
 		$page_list = $this->aasort($page_list, 'timestamp');
 		$page_list = array_reverse($page_list);;
-		array_splice($page_list, 5);
+		array_splice($page_list $number_of_items);
 		$data = array('pages' => $page_list);
 		if (!$file_handle = fopen('rss.xml', 'w')) {
 			return 1;
@@ -162,6 +176,26 @@ class Spage {
 			return 0;
 		}		
 		
+	}
+
+	/**
+	* Gets all pages
+	* 
+	* @access public
+	* @return array
+	*/
+	public function list_all_pages() {
+		$dir = scandir('.');
+		$pages = array();
+
+		foreach ($dir as $name) {
+			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
+				$content = unserialize(file_get_contents($name));
+				$content['url'] .= ".txt";
+				$pages[] = $content;
+			}
+		}
+		return $pages;
 	}
 
 	/**
@@ -199,96 +233,56 @@ class Spage {
 		}
 		return $ret;
 	}
-
 	
 }
 
 $page = new Spage;
 $m = new Mustache;
 
-if (isset($_POST['url'], $_POST['title'], $_POST['content'])) {
-	/* Creates new page. Also page edit form POSTs here.*/
-	$data = array('url' => urlencode($_POST['url']), 'title' => htmlspecialchars($_POST['title']), 'content' => $_POST['content']);
+if (!isset($_REQUEST['operation'])) {
+	$_REQUEST['operation'] = '';
+}
 
-	if (isset($_POST['overwrite']) and $_POST['overwrite']=="true") {
-		if (isset($_POST['date'], $_POST['time'])) {
-			$data['date'] = htmlspecialchars($_POST['date']);
-			$data['time'] = htmlspecialchars($_POST['time']);
-			$data['timestamp'] = htmlspecialchars($_POST['timestamp']);
+switch ($_REQUEST['operation']) {
+	case 'create_page':
+		// Page creation and editing
+		$error_code = $page->add_new_page($_POST, $default_template, isset($_POST['overwrite']));
+		if ($error_code===1) {
+			$message = 'Something went wrong. Maybe the page exists already?';
 		}
-		$overwrite = TRUE;
-	}
-	else {
-		$overwrite = FALSE;
-	}
-	$error_code = $page->add_new_page($data, $default_template, $overwrite);
-	
-	if ($error_code===1) {
-		$message = 'Something went wrong. Maybe the page exists already?';
-	}
-	else {
-		$message = 'Page created.';
-	}
-	echo $m->render($admin_template, array('message' => $message));
-}
-else if (isset($_GET['create_frontpage'])) {
-	$data = $page->get_page('index.txt');
-	echo $m->render($admin_frontpage_template, $data);
-}
-else if (isset($_POST['frontpage_content'])) {
-	$dir = scandir('.');
-	$page_list = array();
-	
-	foreach ($dir as $name) {
-		if ($page->ends_with($name, '.txt') and $name != 'index.txt') {
-			$page_list[] = unserialize(file_get_contents($name));
+		else {
+			$message = 'Page created.';
 		}
-	}
-	$page_list = $page->aasort($page_list, 'timestamp');
-	$page_list = array_reverse($page_list);
-	
-	$data = array('content' => $_POST['frontpage_content'], 'page_list' => $page_list);
-	
-	$page->create_frontpage($data, $frontpage_template);
-	echo $m->render($admin_template, array('message' => 'Frontpage created.'));		
-}
-else if (isset($_GET['rebuild_pages'])) {
-	/* Rebuilds given page. Can be used for example after changing page template */
-	$page->rebuild_pages($default_template);
-	echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
-}
-else if (isset($_GET['edit_page'])) {
-	/* Used for editing given page. If 'page' query parmater is set
-		admin_edit_template is shown. Othervise admin_page_list_template is used. */
-	if (isset($_GET['page'])) {
-		$data = $page->get_page(htmlspecialchars($_GET['page']));
-		echo $m->render($admin_edit_template, $data);
-	}
-	else {
-		$dir = scandir('.');
-		$pages = array();
-
-		foreach ($dir as $name) {
-			if ($page->ends_with($name, '.txt') and $name != 'index.txt') {
-				$content = unserialize(file_get_contents($name));
-				$content['url'] .= ".txt";
-				$pages[] = $content;
-			}
-		}
-		$data['pages'] = $pages;
+		echo $m->render($admin_template, array('message' => $message));
+		break;
+	case 'edit_front_page':
+		$data = $page->get_page('index.txt');
+		echo $m->render($admin_front_page_template, $data);
+		break;
+	case 'create_front_page':
+		$page->create_front_page($_POST, $front_page_template);
+		echo $m->render($admin_template, array('message' => 'Front page created.'));	
+		break;
+	case 'rebuild_pages':
+		$page->rebuild_pages($default_template);
+		echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
+		break;
+	case 'list_pages':
+		$data['pages'] = $page->list_all_pages();
 		echo $m->render($admin_page_list_template, $data);
-	}
+		break;
+	case 'edit_page':
+		$data = $page->get_page(urlencode($_GET['page']));
+		echo $m->render($admin_edit_template, $data);
+		break;
+	case 'delete_page':
+		$page->delete_page(urlencode($_GET['page']));
+		echo $m->render($admin_template, array('message' => 'Page deleted.'));
+		break;
+	default:
+		echo $m->render($admin_template, array());
+		break;
 }
-else if (isset($_GET['delete_page'])) {
-	/* Deletes given page */
-	$page->delete_page($_GET['delete_page']);
-	echo $m->render($admin_template, array('message' => 'Page deleted.'));
-}
-else {
-	/* Shows the default view. */
-	echo $m->render($admin_template, array());
-}
-
 
 /*
 

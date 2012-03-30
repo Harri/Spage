@@ -17,7 +17,7 @@ $default_template = '<!doctype html>
 </body>
 </html>';
 
-$frontpage_template = '<!doctype html>
+$front_page_template = '<!doctype html>
 <html lang="en">
 	<head>
 	<meta charset="utf-8">
@@ -53,9 +53,9 @@ $admin_template = '<!doctype html>
 		<h1>Spage</h1>
 		<ul>
 			<li><a href="spage.php">Admin front page</a></li>
-			<li><a href="spage.php?rebuild_pages=1">Rebuild all pages</a></li>
-			<li><a href="spage.php?create_frontpage=1">Create/update index.html</a></li>
-			<li><a href="spage.php?edit_page=1">Edit page</a></li>
+			<li><a href="spage.php?operation=rebuild_pages">Rebuild all pages</a></li>
+			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
+			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 		</ul>
 		{{message}}
 	</header>
@@ -66,6 +66,7 @@ $admin_template = '<!doctype html>
 			<input name="url" id="url" required="required">
 			<label for="title">Title for the page</label>
 			<input name="title" id="title" required="required">
+			<input name="operation" id="operation" value="create_page" type="hidden">
 			<label for="content">Content</label>
 			<div id="leftContainer">
 				<div class="paneHeader">
@@ -114,9 +115,9 @@ $admin_edit_template = '<!doctype html>
 		<h1>Spage</h1>
 		<ul>
 			<li><a href="spage.php">Admin front page</a></li>
-			<li><a href="spage.php?rebuild_pages=1">Rebuild all pages</a></li>
-			<li><a href="spage.php?create_frontpage=1">Create/update index.html</a></li>
-			<li><a href="spage.php?edit_page=1">Edit page</a></li>
+			<li><a href="spage.php?operation=rebuild_pages">Rebuild all pages</a></li>
+			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
+			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 		</ul>
 		{{message}}
 	</header>
@@ -127,10 +128,10 @@ $admin_edit_template = '<!doctype html>
 			<input name="url" id="url" value="{{url}}" required="required">
 			<label for="title">Title for the page</label>
 			<input name="title" id="title" value="{{title}}" required="required">
-			<input name="overwrite" id="overwrite" value="true" type="hidden">
 			<input name="date" id="date" value="{{date}}" type="hidden">
 			<input name="time" id="time" value="{{time}}" type="hidden">
 			<input name="timestamp" id="timestamp" value="{{timestamp}}" type="hidden">
+			<input name="operation" id="operation" value="create_page" type="hidden">
 			<label for="content">Content</label>
 			<textarea id="content" name="content" rows="20" required="required">{{content}}</textarea>
 		</fieldset>
@@ -138,7 +139,7 @@ $admin_edit_template = '<!doctype html>
 			<button type="submit">Submit</button>
 		</fieldset>
 	</form>
-	Or <a href="spage.php?delete_page={{url}}.txt">delete</a> the page.
+	Or <a href="spage.php?operation=delete_page&page={{url}}.txt">delete</a> the page.
 	<footer>
 	</footer>
 </body>
@@ -156,16 +157,16 @@ $admin_page_list_template = '<!doctype html>
 		<h1>Spage</h1>
 		<ul>
 			<li><a href="spage.php">Admin front page</a></li>
-			<li><a href="spage.php?rebuild_pages=1">Rebuild all pages</a></li>
-			<li><a href="spage.php?create_frontpage=1">Create/update index.html</a></li>
-			<li><a href="spage.php?edit_page=1">Edit page</a></li>
+			<li><a href="spage.php?operation=rebuild_pages">Rebuild all pages</a></li>
+			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
+			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 		</ul>
 		{{message}}
 	</header>
 	<form action="spage.php" method="get">
 		<fieldset>
 			<legend>Edit existing page</legend>
-			<input name="edit_page" id="edit_page" value="1" type="hidden">
+			<input name="operation" id="operation" value="edit_page" type="hidden">
 			<label for="url">Select page</label>
 			<select name="page">
 				{{#pages}}
@@ -182,11 +183,11 @@ $admin_page_list_template = '<!doctype html>
 </body>
 </html>';
 
-$admin_frontpage_template = '<!doctype html>
+$admin_front_page_template = '<!doctype html>
 <html class="page active" lang="en">
 	<head>
 	<meta charset="utf-8">
-	<title>Edit frontpage - Spage</title>
+	<title>Edit front page - Spage</title>
 	<link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -194,17 +195,18 @@ $admin_frontpage_template = '<!doctype html>
 		<h1>Spage</h1>
 		<ul>
 			<li><a href="spage.php">Admin front page</a></li>
-			<li><a href="spage.php?rebuild_pages=1">Rebuild all pages</a></li>
-			<li><a href="spage.php?create_frontpage=1">Create/update index.html</a></li>
-			<li><a href="spage.php?edit_page=1">Edit page</a></li>
+			<li><a href="spage.php?operation=rebuild_pages">Rebuild all pages</a></li>
+			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
+			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 		</ul>
 		{{message}}
 	</header>
 	<form action="spage.php" method="post">
 		<fieldset>
-			<legend>Edit frontpage page</legend>
-			<label for="content">Content</label>
-			<textarea id="frontpage_content" name="frontpage_content" rows="20" required="required">{{content}}</textarea>
+			<legend>Edit front page</legend>
+			<input name="operation" id="operation" value="create_front_page" type="hidden">
+			<label for="front_page_content">Content</label>
+			<textarea id="front_page_content" name="front_page_content" rows="20" required="required">{{front_page_content}}</textarea>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
