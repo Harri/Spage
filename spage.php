@@ -14,6 +14,7 @@
 require('lib/markdown.php');
 require('lib/mustache.php');
 require('templates.php');
+require('admin_templates.php');
 
 class Spage {	
 	/**
@@ -163,8 +164,8 @@ class Spage {
 			}
 		}
 		$page_list = $this->aasort($page_list, 'timestamp');
-		$page_list = array_reverse($page_list);;
-		array_splice($page_list $number_of_items);
+		$page_list = array_reverse($page_list);
+		array_splice($page_list, $number_of_items);
 		$data = array('pages' => $page_list);
 		if (!$file_handle = fopen('rss.xml', 'w')) {
 			return 1;
