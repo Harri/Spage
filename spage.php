@@ -15,8 +15,6 @@ require('lib/markdown.php');
 require('lib/mustache.php');
 require('templates.php');
 
-define('SPAGE_VERSION',  "1.0" ); # 2012-03-28
-
 class Spage {	
 	/**
 	* Adds new page and updates RSS feed. Does not overwrite existing files, unless told so.
@@ -63,20 +61,23 @@ class Spage {
 	* @param string $template
 	* @return int
 	*/
-	public function create_page_list($data, $template) {
-		$data['content_html'] = '<ol>';
-		foreach ($data['content'] as $page) {
-			$data['content_html'] .= '<li><a href="'.$page['url'].'.html">'.$page['title'].'</a> ('.$page['date'].')</li>';
+	public function create_frontpage($data, $template) {
+		$page_list = array();
+		foreach ($data['page_list'] as $page) {
+			$page_list[] = array('url' => $page['url'], 'title' => $page['title'], 'date' => $page['date']);
 		}
-		$data['content_html'] .= '</ol>';
+		$data['page_list'] = $page_list;
+		$data['content_html'] = Markdown($data['content']);
 		
-		if (!$file_handle = fopen('index.html', 'w')) {
+		if (!$file_handle = fopen('index.html', 'w') or !$plain_file_handle = fopen('index.txt', 'w')) {
 			return 1;
 		}
 		else {
 			$m = new Mustache;
 			fwrite($file_handle, $m->render($template, $data));
 			fclose($file_handle);
+			fwrite($plain_file_handle, serialize($data));
+			fclose($plain_file_handle);
 			return 0;
 		}			
 	}
@@ -93,7 +94,7 @@ class Spage {
 		$page_list = array();
 		
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt')) {
+			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
 				$data = unserialize(file_get_contents($name));
 				$this->add_new_page($data, $template, TRUE);
 			}
@@ -143,7 +144,7 @@ class Spage {
 		$page_list = array();
 		
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt')) {
+			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
 				$page_list[] = unserialize(file_get_contents($name));
 			}
 		}
@@ -230,23 +231,26 @@ if (isset($_POST['url'], $_POST['title'], $_POST['content'])) {
 	}
 	echo $m->render($admin_template, array('message' => $message));
 }
-else if (isset($_GET['create_page_list'])) {
-	/* Creates index.html with list of pages */
+else if (isset($_GET['create_frontpage'])) {
+	$data = $page->get_page('index.txt');
+	echo $m->render($admin_frontpage_template, $data);
+}
+else if (isset($_POST['frontpage_content'])) {
 	$dir = scandir('.');
 	$page_list = array();
 	
 	foreach ($dir as $name) {
-		if ($page->ends_with($name, '.txt')) {
+		if ($page->ends_with($name, '.txt') and $name != 'index.txt') {
 			$page_list[] = unserialize(file_get_contents($name));
 		}
 	}
-	
 	$page_list = $page->aasort($page_list, 'timestamp');
-	$page_list = array_reverse($page_list);;
+	$page_list = array_reverse($page_list);
 	
-	$data = array('content' => $page_list);
-	$page->create_page_list($data, $page_list_template);
-	echo $m->render($admin_template, array('message' => 'Page list created.'));
+	$data = array('content' => $_POST['frontpage_content'], 'page_list' => $page_list);
+	
+	$page->create_frontpage($data, $frontpage_template);
+	echo $m->render($admin_template, array('message' => 'Frontpage created.'));		
 }
 else if (isset($_GET['rebuild_pages'])) {
 	/* Rebuilds given page. Can be used for example after changing page template */
@@ -265,7 +269,7 @@ else if (isset($_GET['edit_page'])) {
 		$pages = array();
 
 		foreach ($dir as $name) {
-			if ($page->ends_with($name, '.txt')) {
+			if ($page->ends_with($name, '.txt') and $name != 'index.txt') {
 				$content = unserialize(file_get_contents($name));
 				$content['url'] .= ".txt";
 				$pages[] = $content;

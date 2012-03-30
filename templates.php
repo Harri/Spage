@@ -17,8 +17,8 @@ $default_template = '<!doctype html>
 </body>
 </html>';
 
-$page_list_template = '<!doctype html>
-<html class="page active" lang="en">
+$frontpage_template = '<!doctype html>
+<html lang="en">
 	<head>
 	<meta charset="utf-8">
 	<title>Spage</title>
@@ -29,6 +29,11 @@ $page_list_template = '<!doctype html>
 		<h1>Spage</h1>
 	</header>
 	{{{content_html}}}
+	<ol>
+	{{#page_list}}
+		<li><a href="{{url}}.html">{{title}}</a> ({{date}})</li>
+	{{/page_list}}
+	</ol>
 	<footer>
 	</footer>
 </body>
@@ -49,7 +54,7 @@ $admin_template = '<!doctype html>
 		<ul>
 			<li><a href="spage.php">Admin front page</a></li>
 			<li><a href="spage.php?rebuild_pages=1">Rebuild all pages</a></li>
-			<li><a href="spage.php?create_page_list=1">Create/update index.html</a></li>
+			<li><a href="spage.php?create_frontpage=1">Create/update index.html</a></li>
 			<li><a href="spage.php?edit_page=1">Edit page</a></li>
 		</ul>
 		{{message}}
@@ -110,7 +115,7 @@ $admin_edit_template = '<!doctype html>
 		<ul>
 			<li><a href="spage.php">Admin front page</a></li>
 			<li><a href="spage.php?rebuild_pages=1">Rebuild all pages</a></li>
-			<li><a href="spage.php?create_page_list=1">Create/update index.html</a></li>
+			<li><a href="spage.php?create_frontpage=1">Create/update index.html</a></li>
 			<li><a href="spage.php?edit_page=1">Edit page</a></li>
 		</ul>
 		{{message}}
@@ -152,7 +157,7 @@ $admin_page_list_template = '<!doctype html>
 		<ul>
 			<li><a href="spage.php">Admin front page</a></li>
 			<li><a href="spage.php?rebuild_pages=1">Rebuild all pages</a></li>
-			<li><a href="spage.php?create_page_list=1">Create/update index.html</a></li>
+			<li><a href="spage.php?create_frontpage=1">Create/update index.html</a></li>
 			<li><a href="spage.php?edit_page=1">Edit page</a></li>
 		</ul>
 		{{message}}
@@ -167,6 +172,39 @@ $admin_page_list_template = '<!doctype html>
 				<option value="{{url}}">{{title}} ({{url}})</option>
 				{{/pages}}
 			</select> 
+		</fieldset>
+		<fieldset>
+			<button type="submit">Submit</button>
+		</fieldset>
+	</form>
+	<footer>
+	</footer>
+</body>
+</html>';
+
+$admin_frontpage_template = '<!doctype html>
+<html class="page active" lang="en">
+	<head>
+	<meta charset="utf-8">
+	<title>Edit frontpage - Spage</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<header>
+		<h1>Spage</h1>
+		<ul>
+			<li><a href="spage.php">Admin front page</a></li>
+			<li><a href="spage.php?rebuild_pages=1">Rebuild all pages</a></li>
+			<li><a href="spage.php?create_frontpage=1">Create/update index.html</a></li>
+			<li><a href="spage.php?edit_page=1">Edit page</a></li>
+		</ul>
+		{{message}}
+	</header>
+	<form action="spage.php" method="post">
+		<fieldset>
+			<legend>Edit frontpage page</legend>
+			<label for="content">Content</label>
+			<textarea id="frontpage_content" name="frontpage_content" rows="20" required="required">{{content}}</textarea>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
