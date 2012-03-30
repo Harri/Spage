@@ -27,13 +27,8 @@ $admin_template = '<!doctype html>
 			<label for="title">Title for the page</label>
 			<input name="title" id="title" required="required">
 			<input name="operation" id="operation" value="create_page" type="hidden">
-			<label for="content">Content</label>
-			<div id="leftContainer">
-				<div class="paneHeader">
-					<span>Input</span>
-				</div>
-				<textarea id="inputPane" name="content" rows="20" required="required" class="pane"></textarea>
-			</div>
+			<label for="inputPane">Content</label>
+			<textarea id="inputPane" name="content" rows="20" required="required" class="pane"></textarea>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
