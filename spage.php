@@ -18,7 +18,8 @@ require('admin_templates.php');
 
 class Spage {	
 	/**
-	* Adds new page and updates RSS feed. Does not overwrite existing files, unless told so.
+	* Adds new page and updates RSS feed.
+	* Does not overwrite existing files, unless told so.
 	* 
 	* @access public
 	* @param array $data
@@ -43,8 +44,9 @@ class Spage {
 			$data['time'] = date('H:i');
 			$data['timestamp'] = time();
 		}
-		
-		if (!$file_handle = fopen($data['url'].'.html', 'w') or !$plain_file_handle = fopen($data['url'].'.txt', 'w')) {
+		$file_handle = fopen($data['url'].'.html', 'w');
+		$plain_file_handle = fopen($data['url'].'.txt', 'w');
+		if (!$file_handle or !$plain_file_handle) {
 			if ($overwrite and file_exists($data['url'].'.html')) {
 				return 1;
 			}
@@ -73,7 +75,7 @@ class Spage {
 		$page_list = array();
 	
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
+			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
 				$page_list[] = unserialize(file_get_contents($name));
 			}
 		}
@@ -83,7 +85,9 @@ class Spage {
 		$data['page_list'] = $page_list;
 		$data['content_html'] = Markdown($data['front_page_content']);
 		
-		if (!$file_handle = fopen('index.html', 'w') or !$plain_file_handle = fopen('index.txt', 'w')) {
+		$file_handle = fopen('index.html', 'w');
+		$plain_file_handle = fopen('index.txt', 'w');
+		if (!$file_handle or !$plain_file_handle) {
 			return 1;
 		}
 		else {
@@ -107,7 +111,7 @@ class Spage {
 		$dir = scandir('.');
 		$page_list = array();
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
+			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
 				$data = unserialize(file_get_contents($name));
 				$this->add_new_page($data, $template, TRUE);
 			}
@@ -123,7 +127,8 @@ class Spage {
 	* @return array
 	*/
 	public function get_page($page) {
-		if (!strpbrk($page, '/\\') and $this->ends_with($page, '.txt') and is_file($page)) {
+		if (!strpbrk($page, '/\\') and 
+			$this->ends_with($page, '.txt') and	is_file($page)) {
 			$data = unserialize(file_get_contents($page));
 			return $data;
 		}
@@ -139,7 +144,8 @@ class Spage {
 	* @return void
 	*/
 	public function delete_page($page) {
-		if (!strpbrk($page, '/\\') and $this->ends_with($page, '.txt') and is_file($page)) {
+		if (!strpbrk($page, '/\\') and
+			$this->ends_with($page, '.txt') and	is_file($page)) {
 			rename($page, 'trash/'.$page);
 			$page = str_replace('.txt', '.html', $page);
 			rename($page, 'trash/'.$page);
@@ -159,7 +165,7 @@ class Spage {
 		$page_list = array();
 		
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
+			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
 				$page_list[] = unserialize(file_get_contents($name));
 			}
 		}
@@ -167,7 +173,8 @@ class Spage {
 		$page_list = array_reverse($page_list);
 		array_splice($page_list, $number_of_items);
 		$data = array('pages' => $page_list);
-		if (!$file_handle = fopen('rss.xml', 'w')) {
+		$file_handle = fopen('rss.xml', 'w');
+		if (!$file_handle) {
 			return 1;
 		}
 		else {
@@ -190,7 +197,7 @@ class Spage {
 		$pages = array();
 
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') and $name != 'index.txt') {
+			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
 				$content = unserialize(file_get_contents($name));
 				$content['url'] .= ".txt";
 				$pages[] = $content;
@@ -214,7 +221,22 @@ class Spage {
 	}
 	
 	/**
-	* Helper function to sort multidimensional array. Returns given array in sorted order
+	* Helper function to verify if string starts with given substring
+	* 
+	* @access public
+	* @param string $haystack
+	* @param string $needle
+	* @return string
+	*/
+	public function starts_with($haystack, $needle) {
+		$length = strlen($needle);
+		return (substr($haystack, 0, $length) === $needle);
+	}
+
+
+	/**
+	* Helper function to sort multidimensional array.
+	* Returns given array in sorted order
 	* 
 	* @access public
 	* @param array $array
@@ -237,17 +259,22 @@ class Spage {
 	
 }
 
-$page = new Spage;
+$s = new Spage;
 $m = new Mustache;
+$protocols = array('http://', 'https://');
+$http_referer_without_protocol = str_replace($protocols, '', $_SERVER['HTTP_REFERER']);
 
-if (!isset($_REQUEST['operation'])) {
+// If no 'operation' parameters is set or if referer is not self,
+// 'operation' is set to empty (blocks CSRF vulnerability).
+if (!isset($_REQUEST['operation']) or
+	!$s->starts_with($http_referer_without_protocol, $_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'])) {
 	$_REQUEST['operation'] = '';
 }
 
 switch ($_REQUEST['operation']) {
 	case 'create_page':
 		// Page creation and editing
-		$error_code = $page->add_new_page($_POST, $default_template, isset($_POST['overwrite']));
+		$error_code = $s->add_new_page($_POST, $default_template, isset($_POST['overwrite']));
 		if ($error_code===1) {
 			$message = 'Something went wrong. Maybe the page exists already?';
 		}
@@ -257,27 +284,27 @@ switch ($_REQUEST['operation']) {
 		echo $m->render($admin_template, array('message' => $message));
 		break;
 	case 'edit_front_page':
-		$data = $page->get_page('index.txt');
+		$data = $s->get_page('index.txt');
 		echo $m->render($admin_front_page_template, $data);
 		break;
 	case 'create_front_page':
-		$page->create_front_page($_POST, $front_page_template);
+		$s->create_front_page($_POST, $front_page_template);
 		echo $m->render($admin_template, array('message' => 'Front page created.'));	
 		break;
 	case 'rebuild_pages':
-		$page->rebuild_pages($default_template);
+		$s->rebuild_pages($default_template);
 		echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
 		break;
 	case 'list_pages':
-		$data['pages'] = $page->list_all_pages();
+		$data['pages'] = $s->list_all_pages();
 		echo $m->render($admin_page_list_template, $data);
 		break;
 	case 'edit_page':
-		$data = $page->get_page(urlencode($_GET['page']));
+		$data = $s->get_page(urlencode($_GET['page']));
 		echo $m->render($admin_edit_template, $data);
 		break;
 	case 'delete_page':
-		$page->delete_page(urlencode($_GET['page']));
+		$s->delete_page(urlencode($_GET['page']));
 		echo $m->render($admin_template, array('message' => 'Page deleted.'));
 		break;
 	default:
