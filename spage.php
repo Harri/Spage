@@ -243,7 +243,7 @@ class Spage {
 	* @param string $key
 	* @return array
 	*/
-	function aasort (&$array, $key) {
+	public function aasort (&$array, $key) {
 		$sorter=array();
 		$ret=array();
 		reset($array);
