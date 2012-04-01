@@ -3,18 +3,17 @@
 /**
  * Simple static file page creation system
  *
- * {@link https://github.com/Harri/Spage}
- *
  * Spage does not need database, it lets web servers do what they do best;
  * serve flat files.
  *
- * @author Harri Paavola {@link https://plus.google.com/108215938928178695462/about}
+ * @author Harri Paavola, harri.paavola@gmail.com
+ * @link https://github.com/Harri/Spage
  */
 
-require('lib/markdown.php');
-require('lib/mustache.php');
-require('templates.php');
-require('admin_templates.php');
+require 'lib/markdown.php';
+require 'lib/mustache.php';
+require 'templates.php';
+require 'admin_templates.php';
 
 class Spage {	
 	/**
@@ -44,12 +43,16 @@ class Spage {
 			$data['time'] = date('H:i');
 			$data['timestamp'] = time();
 		}
+		
+		if (file_exists($data['url'].'.html') and $overwrite!==TRUE) {
+			return 1;
+		}		
+		
 		$file_handle = fopen($data['url'].'.html', 'w');
 		$plain_file_handle = fopen($data['url'].'.txt', 'w');
+		
 		if (!$file_handle or !$plain_file_handle) {
-			if ($overwrite and file_exists($data['url'].'.html')) {
-				return 1;
-			}
+			return 2;
 		}
 		else {	
 			$m = new Mustache;
@@ -239,7 +242,7 @@ class Spage {
 	* Returns given array in sorted order
 	* 
 	* @access public
-	* @param array $array
+	* @param array &$array
 	* @param string $key
 	* @return array
 	*/
@@ -261,6 +264,10 @@ class Spage {
 
 $s = new Spage;
 $m = new Mustache;
+
+if (!isset($_SERVER['HTTP_REFERER'])) {
+	$_SERVER['HTTP_REFERER'] = '';
+}
 $protocols = array('http://', 'https://');
 $http_referer_without_protocol = str_replace($protocols, '', $_SERVER['HTTP_REFERER']);
 
@@ -276,7 +283,10 @@ switch ($_REQUEST['operation']) {
 		// Page creation and editing
 		$error_code = $s->add_new_page($_POST, $default_template, isset($_POST['overwrite']));
 		if ($error_code===1) {
-			$message = 'Something went wrong. Maybe the page exists already?';
+			$message = 'Page with same name already exists.';
+		}
+		else if ($error_code===2) {
+			$message = 'Something went wrong while creating the page.';
 		}
 		else {
 			$message = 'Page created.';
@@ -289,7 +299,7 @@ switch ($_REQUEST['operation']) {
 		break;
 	case 'create_front_page':
 		$s->create_front_page($_POST, $front_page_template);
-		echo $m->render($admin_template, array('message' => 'Front page created.'));	
+		echo $m->render($admin_template, array('message' => 'Front page created.'));
 		break;
 	case 'rebuild_pages':
 		$s->rebuild_pages($default_template);
