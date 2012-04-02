@@ -87,6 +87,7 @@ $admin_edit_template = '<!doctype html>
 			<input name="time" id="time" value="{{time}}" type="hidden">
 			<input name="timestamp" id="timestamp" value="{{timestamp}}" type="hidden">
 			<input name="operation" id="operation" value="create_page" type="hidden">
+			<input name="overwrite" id="overwrite" value="TRUE" type="hidden">
 			<label for="content">Content</label>
 			<textarea id="content" name="content" rows="20" required="required">{{content}}</textarea>
 		</fieldset>
