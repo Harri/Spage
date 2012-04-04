@@ -12,7 +12,7 @@ Simple flat file CMS written in PHP. Each page gets its own `*.html` file which 
 
 Configuration and usage
 -
-There is no need to do any configuration, but protecting `spage.php` and trash directory using `.htaccess` or similar means is recommended.
+There is no need to do any configuration, but protecting `spage.php` and `trash` directory using `.htaccess` or similar means is recommended.
 
 Editing `templates.php` and `style.css` is also something you might want to do.
 
