@@ -15,11 +15,13 @@ require 'lib/mustache.php';
 require 'templates.php';
 require 'admin_templates.php';
 
-class Spage {	
+$m = new Mustache;
+
+class Spage {
 	/**
 	* Adds new page and updates RSS feed.
 	* Does not overwrite existing files, unless told so.
-	* 
+	*
 	* @access public
 	* @param array $data
 	* @param string $template
@@ -30,7 +32,7 @@ class Spage {
 		$data['url'] = urlencode($data['url']);
 		$data['title'] = htmlspecialchars($data['title']);
 		$data['content_html'] = Markdown($data['content']);
-		
+
 		if ($overwrite) {
 			$data['date'] = htmlspecialchars($data['date']);
 			$data['time'] = htmlspecialchars($data['time']);
@@ -43,31 +45,24 @@ class Spage {
 			$data['time'] = date('H:i');
 			$data['timestamp'] = time();
 		}
-		
+
 		if (file_exists($data['url'].'.html') and $overwrite!==TRUE) {
 			return 1;
-		}		
-		
-		$file_handle = fopen($data['url'].'.html', 'w');
-		$plain_file_handle = fopen($data['url'].'.txt', 'w');
-		
-		if (!$file_handle or !$plain_file_handle) {
-			return 2;
 		}
-		else {	
-			$m = new Mustache;
-			fwrite($file_handle, $m->render($template, $data));
-			fclose($file_handle);
-			fwrite($plain_file_handle, serialize($data));
-			fclose($plain_file_handle);
+		else {
+			$bytes_written = file_put_contents($data['url'].'.html', $GLOBALS['m']->render($template, $data));
+			$bytes_written_2 = file_put_contents($data['url'].'.txt', serialize($data));
+			if (!$bytes_written or !$bytes_written_2) {
+				return 2;
+			}
 			$this->create_rss_feed($GLOBALS['rss_template']);
 			return 0;
 		}
 	}
-	
+
 	/**
 	* Creates or updates front page
-	* 
+	*
 	* @access public
 	* @param array $data
 	* @param string $template
@@ -76,7 +71,7 @@ class Spage {
 	public function create_front_page($data, $template) {
 		$dir = scandir('.');
 		$page_list = array();
-	
+
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
 				$page_list[] = unserialize(file_get_contents($name));
@@ -87,25 +82,20 @@ class Spage {
 
 		$data['page_list'] = $page_list;
 		$data['content_html'] = Markdown($data['front_page_content']);
-		
-		$file_handle = fopen('index.html', 'w');
-		$plain_file_handle = fopen('index.txt', 'w');
-		if (!$file_handle or !$plain_file_handle) {
+
+		$bytes_written = file_put_contents('index.html', $GLOBALS['m']->render($template, $data));
+		$bytes_written_2 = file_put_contents('index.txt', serialize($data));
+		if (!$bytes_written or !$bytes_written_2) {
 			return 1;
 		}
 		else {
-			$m = new Mustache;
-			fwrite($file_handle, $m->render($template, $data));
-			fclose($file_handle);
-			fwrite($plain_file_handle, serialize($data));
-			fclose($plain_file_handle);
 			return 0;
-		}			
+		}
 	}
-	
+
 	/**
 	* Rebuilds all pages in current directory to match new template.
-	* 
+	*
 	* @access public
 	* @param string $template
 	* @return void
@@ -124,13 +114,13 @@ class Spage {
 	/**
 	* Gets given page. Requested page name must not contain / or \
 	* and it must end with .txt
-	* 
+	*
 	* @access public
 	* @param string $page
 	* @return array
 	*/
 	public function get_page($page) {
-		if (!strpbrk($page, '/\\') and 
+		if (!strpbrk($page, '/\\') and
 			$this->ends_with($page, '.txt') and	is_file($page)) {
 			$data = unserialize(file_get_contents($page));
 			return $data;
@@ -141,7 +131,7 @@ class Spage {
 
 	/**
 	* Moves page (*.html and *.txt) to trash/ directory.
-	* 
+	*
 	* @access public
 	* @param string $page
 	* @return void
@@ -154,19 +144,19 @@ class Spage {
 			rename($page, 'trash/'.$page);
 		}
 	}
-	
+
 	/**
 	* Creates (and updates) RSS page. Returns 0 if everything went ok.
-	* 
+	*
 	* @access public
 	* @param string $template
 	* @param int $number_of_items (default: 5)
-	* @return int 
+	* @return int
 	*/
 	public function create_rss_feed($template, $number_of_items=5) {
 		$dir = scandir('.');
 		$page_list = array();
-		
+
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
 				$page_list[] = unserialize(file_get_contents($name));
@@ -176,22 +166,19 @@ class Spage {
 		$page_list = array_reverse($page_list);
 		array_splice($page_list, $number_of_items);
 		$data = array('pages' => $page_list);
-		$file_handle = fopen('rss.xml', 'w');
-		if (!$file_handle) {
+
+		$bytes_written = file_put_contents('rss.xml', $GLOBALS['m']->render($template, $data));
+		if (!$bytes_written) {
 			return 1;
 		}
 		else {
-			$m = new Mustache;
-			fwrite($file_handle, $m->render($template, $data));
-			fclose($file_handle);
 			return 0;
-		}		
-		
+		}
 	}
 
 	/**
 	* Gets all pages
-	* 
+	*
 	* @access public
 	* @return array
 	*/
@@ -211,7 +198,7 @@ class Spage {
 
 	/**
 	* Helper function to verify if string ends with given substring
-	* 
+	*
 	* @access public
 	* @param string $haystack
 	* @param string $needle
@@ -222,10 +209,10 @@ class Spage {
 		$start  = $length * -1;
 		return (substr($haystack, $start) === $needle);
 	}
-	
+
 	/**
 	* Helper function to verify if string starts with given substring
-	* 
+	*
 	* @access public
 	* @param string $haystack
 	* @param string $needle
@@ -240,7 +227,7 @@ class Spage {
 	/**
 	* Helper function to sort multidimensional array.
 	* Returns given array in sorted order
-	* 
+	*
 	* @access public
 	* @param array &$array
 	* @param string $key
@@ -259,11 +246,9 @@ class Spage {
 		}
 		return $ret;
 	}
-	
 }
 
 $s = new Spage;
-$m = new Mustache;
 
 if (!isset($_SERVER['HTTP_REFERER'])) {
 	$_SERVER['HTTP_REFERER'] = '';
