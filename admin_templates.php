@@ -64,6 +64,8 @@ $admin_edit_template = '<!doctype html>
 	<meta charset="utf-8">
 	<title>Edit page - Spage</title>
 	<link rel="stylesheet" href="style.css">
+	<script type="text/javascript" src="lib/showdown.js"></script>
+	<script type="text/javascript" src="lib/showdown-gui.js"></script>
 </head>
 <body>
 	<header>
@@ -89,14 +91,33 @@ $admin_edit_template = '<!doctype html>
 			<input name="operation" id="operation" value="create_page" type="hidden">
 			<input name="overwrite" id="overwrite" value="TRUE" type="hidden">
 			<label for="content">Content</label>
-			<textarea id="content" name="content" rows="20" required="required">{{content}}</textarea>
+			<textarea id="inputPane" name="content" rows="20" required="required" class="pane">{{content}}</textarea>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
 		</fieldset>
 	</form>
-	Or <a href="spage.php?operation=delete_page&page={{url}}.txt">delete</a> the page.
-	<footer>
+	<select id="paneSetting">
+		<option value="previewPane">Preview</option>
+		<option value="outputPane">HTML Output</option>
+		<option value="syntaxPane">Syntax Guide</option>
+	</select>
+	<textarea id="outputPane" class="pane" rows="20" readonly="readonly"></textarea>
+	<div id="previewPane" class="pane"></div>
+	<textarea id="syntaxPane" class="pane" rows="20" readonly="readonly">Visit http://daringfireball.net/projects/markdown/syntax</textarea>
+	<footer id="footer">
+		<span id="convertTextControls">
+			<button id="convertTextButton" type="button" title="Convert text now">
+				Convert text
+			</button>
+			<select id="convertTextSetting">
+				<option value="delayed">in the background</option>
+				<option value="continuous">every keystroke</option>
+				<option value="manual">manually</option>
+			</select>
+		</span>
+		<div id="processingTime" title="Last processing time">0 ms</div>
+		Or <a href="spage.php?operation=delete_page&page={{url}}.txt">delete</a> the page.
 	</footer>
 </body>
 </html>';
