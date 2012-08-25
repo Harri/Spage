@@ -5,6 +5,7 @@ $default_template = '<!doctype html>
 	<meta charset="utf-8">
 	<meta name="dcterms.created" content="{{date}}">
 	<title>{{title}}</title>
+	<link rel="stylesheet" href="normalize.css">
 	<link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,6 +23,7 @@ $front_page_template = '<!doctype html>
 	<head>
 	<meta charset="utf-8">
 	<title>Spage</title>
+	<link rel="stylesheet" href="normalize.css">
 	<link rel="stylesheet" href="style.css">
 </head>
 <body>

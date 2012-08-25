@@ -46,13 +46,13 @@ class Spage {
 			$data['timestamp'] = time();
 		}
 
-		if (file_exists($data['url'].'.html') and $overwrite!==TRUE) {
+		if (file_exists($data['url'].'.html') && $overwrite!==TRUE) {
 			return 1;
 		}
 		else {
 			$bytes_written = file_put_contents($data['url'].'.html', $GLOBALS['m']->render($template, $data));
 			$bytes_written_2 = file_put_contents($data['url'].'.txt', serialize($data));
-			if (!$bytes_written or !$bytes_written_2) {
+			if (!$bytes_written || !$bytes_written_2) {
 				return 2;
 			}
 			$this->create_rss_feed($GLOBALS['rss_template']);
@@ -73,7 +73,7 @@ class Spage {
 		$page_list = array();
 
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
+			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
 				$page_list[] = unserialize(file_get_contents($name));
 			}
 		}
@@ -85,7 +85,7 @@ class Spage {
 
 		$bytes_written = file_put_contents('index.html', $GLOBALS['m']->render($template, $data));
 		$bytes_written_2 = file_put_contents('index.txt', serialize($data));
-		if (!$bytes_written or !$bytes_written_2) {
+		if (!$bytes_written || !$bytes_written_2) {
 			return 1;
 		}
 		else {
@@ -104,7 +104,7 @@ class Spage {
 		$dir = scandir('.');
 		$page_list = array();
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
+			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
 				$data = unserialize(file_get_contents($name));
 				$this->add_new_page($data, $template, TRUE);
 			}
@@ -120,8 +120,8 @@ class Spage {
 	* @return array
 	*/
 	public function get_page($page) {
-		if (!strpbrk($page, '/\\') and
-			$this->ends_with($page, '.txt') and	is_file($page)) {
+		if (!strpbrk($page, '/\\') &&
+			$this->ends_with($page, '.txt') && is_file($page)) {
 			$data = unserialize(file_get_contents($page));
 			return $data;
 		}
@@ -137,8 +137,8 @@ class Spage {
 	* @return void
 	*/
 	public function delete_page($page) {
-		if (!strpbrk($page, '/\\') and
-			$this->ends_with($page, '.txt') and	is_file($page)) {
+		if (!strpbrk($page, '/\\') &&
+			$this->ends_with($page, '.txt') && is_file($page)) {
 			rename($page, 'trash/'.$page);
 			$page = str_replace('.txt', '.html', $page);
 			rename($page, 'trash/'.$page);
@@ -158,7 +158,7 @@ class Spage {
 		$page_list = array();
 
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
+			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
 				$page_list[] = unserialize(file_get_contents($name));
 			}
 		}
@@ -187,7 +187,7 @@ class Spage {
 		$pages = array();
 
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') and $name !== 'index.txt') {
+			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
 				$content = unserialize(file_get_contents($name));
 				$content['url'] .= ".txt";
 				$pages[] = $content;
@@ -233,7 +233,7 @@ class Spage {
 	* @param string $key
 	* @return array
 	*/
-	public function aasort (&$array, $key) {
+	public function aasort(&$array, $key) {
 		$sorter=array();
 		$ret=array();
 		reset($array);
@@ -258,7 +258,7 @@ $http_referer_without_protocol = str_replace($protocols, '', $_SERVER['HTTP_REFE
 
 // If no 'operation' parameters is set or if referer is not self,
 // 'operation' is set to empty (blocks CSRF vulnerability).
-if (!isset($_REQUEST['operation']) or
+if (!isset($_REQUEST['operation']) ||
 	!$s->starts_with($http_referer_without_protocol, $_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'])) {
 	$_REQUEST['operation'] = '';
 }
