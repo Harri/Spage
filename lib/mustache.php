@@ -12,35 +12,9 @@
  *
  * @author Justin Hileman {@link http://justinhileman.com}
  */
- 
- /*
-Copyright (c) 2010 Justin Hileman
-
-Permission is hereby granted, free of charge, to any person
-obtaining a copy of this software and associated documentation
-files (the "Software"), to deal in the Software without
-restriction, including without limitation the rights to use,
-copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
- */
- 
 class Mustache {
 
-	const VERSION      = '1.0.0';
+	const VERSION      = '1.1.0';
 	const SPEC_VERSION = '1.1.2';
 
 	/**
@@ -55,6 +29,9 @@ class Mustache {
 		MustacheException::UNKNOWN_PARTIAL          => false,
 		MustacheException::UNKNOWN_PRAGMA           => true,
 	);
+
+	// Override the escaper function. Defaults to `htmlspecialchars`.
+	protected $_escape;
 
 	// Override charset passed to htmlentities() and htmlspecialchars(). Defaults to UTF-8.
 	protected $_charset = 'UTF-8';
@@ -110,6 +87,11 @@ class Mustache {
 	 * Passing an $options array allows overriding certain Mustache options during instantiation:
 	 *
 	 *     $options = array(
+	 *         // `escape` -- custom escaper callback; must be callable.
+	 *         'escape' => function($text) {
+	 *             return htmlspecialchars($text, ENT_COMPAT, 'UTF-8');
+	 *         },
+	 *
 	 *         // `charset` -- must be supported by `htmlspecialentities()`. defaults to 'UTF-8'
 	 *         'charset' => 'ISO-8859-1',
 	 *
@@ -153,6 +135,13 @@ class Mustache {
 	 * @return void
 	 */
 	protected function _setOptions(array $options) {
+		if (isset($options['escape'])) {
+			if (!is_callable($options['escape'])) {
+				throw new InvalidArgumentException('Mustache constructor "escape" option must be callable');
+			}
+			$this->_escape = $options['escape'];
+		}
+
 		if (isset($options['charset'])) {
 			$this->_charset = $options['charset'];
 		}
@@ -666,7 +655,13 @@ class Mustache {
 	 * @return string
 	 */
 	protected function _renderEscaped($tag_name, $leading, $trailing) {
-		$rendered = htmlentities($this->_renderUnescaped($tag_name, '', ''), ENT_COMPAT, $this->_charset);
+		$value = $this->_renderUnescaped($tag_name, '', '');
+		if (isset($this->_escape)) {
+			$rendered = call_user_func($this->_escape, $value);
+		} else {
+			$rendered = htmlentities($value, ENT_COMPAT, $this->_charset);
+		}
+
 		return $leading . $rendered . $trailing;
 	}
 

@@ -18,6 +18,10 @@ require 'admin_templates.php';
 $m = new Mustache;
 
 class Spage {
+
+	const DRAFTS_DIR = 'drafts/';
+	const TRASH_DIR = 'trash/';
+
 	/**
 	* Adds new page and updates RSS feed.
 	* Does not overwrite existing files, unless told so.
@@ -29,9 +33,14 @@ class Spage {
 	* @return int
 	*/
 	public function add_new_page($data, $template, $overwrite=FALSE) {
+		$data['url'] = str_replace(self::DRAFTS_DIR, '', $data['url']);
 		$data['url'] = urlencode($data['url']);
 		$data['title'] = htmlspecialchars($data['title']);
 		$data['content_html'] = Markdown($data['content']);
+
+		if (isset($data['draft']) && $data['draft'] === 'draft') {
+			$data['url'] = self::DRAFTS_DIR.$data['url'];
+		}
 
 		if ($overwrite) {
 			$data['date'] = htmlspecialchars($data['date']);
@@ -120,7 +129,9 @@ class Spage {
 	* @return array
 	*/
 	public function get_page($page) {
-		if (!strpbrk($page, '/\\') &&
+		$page = str_replace(urlencode(self::DRAFTS_DIR), self::DRAFTS_DIR, $page);
+		if (!$this->starts_with($page, '/') &&
+			!$this->starts_with($page, '\\') &&
 			$this->ends_with($page, '.txt') && is_file($page)) {
 			$data = unserialize(file_get_contents($page));
 			return $data;
@@ -137,11 +148,14 @@ class Spage {
 	* @return void
 	*/
 	public function delete_page($page) {
-		if (!strpbrk($page, '/\\') &&
+		$page = str_replace(urlencode(self::DRAFTS_DIR), self::DRAFTS_DIR, $page);
+		if (!$this->starts_with($page, '/') &&
+			!$this->starts_with($page, '\\') &&
 			$this->ends_with($page, '.txt') && is_file($page)) {
-			rename($page, 'trash/'.$page);
+			$page_without_draft = str_replace(self::DRAFTS_DIR, '', $page);
+			rename($page, self::TRASH_DIR.$page_without_draft);
 			$page = str_replace('.txt', '.html', $page);
-			rename($page, 'trash/'.$page);
+			rename($page, self::TRASH_DIR.$page_without_draft);
 		}
 	}
 
@@ -186,6 +200,10 @@ class Spage {
 		$dir = scandir('.');
 		$pages = array();
 
+		$draft_dir = scandir(self::DRAFTS_DIR);
+		$drafts = array();
+
+
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
 				$content = unserialize(file_get_contents($name));
@@ -193,7 +211,15 @@ class Spage {
 				$pages[] = $content;
 			}
 		}
-		return $pages;
+
+		foreach ($draft_dir as $name) {
+			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
+				$content = unserialize(file_get_contents(self::DRAFTS_DIR.$name));
+				$content['url'] .= ".txt";
+				$drafts[] = $content;
+			}
+		}
+		return array('pages' => $pages, 'drafts' => $drafts);
 	}
 
 	/**
@@ -291,7 +317,7 @@ switch ($_REQUEST['operation']) {
 		echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
 		break;
 	case 'list_pages':
-		$data['pages'] = $s->list_all_pages();
+		$data['all_pages'] = $s->list_all_pages();
 		echo $m->render($admin_page_list_template, $data);
 		break;
 	case 'edit_page':
