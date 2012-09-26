@@ -19,8 +19,7 @@ $m = new Mustache;
 
 class Spage {
 
-	const DRAFTS_DIR = 'drafts/';
-	const TRASH_DIR = 'trash/';
+	const TRASH_DIR = 'trash';
 
 	/**
 	* Adds new page and updates RSS feed.
@@ -33,14 +32,9 @@ class Spage {
 	* @return int
 	*/
 	public function add_new_page($data, $template, $overwrite=FALSE) {
-		$data['url'] = str_replace(self::DRAFTS_DIR, '', $data['url']);
 		$data['url'] = urlencode($data['url']);
 		$data['title'] = htmlspecialchars($data['title']);
 		$data['content_html'] = Markdown($data['content']);
-
-		if (isset($data['draft']) && $data['draft'] === 'draft') {
-			$data['url'] = self::DRAFTS_DIR.$data['url'];
-		}
 
 		if ($overwrite) {
 			$data['date'] = htmlspecialchars($data['date']);
@@ -59,9 +53,9 @@ class Spage {
 			return 1;
 		}
 		else {
-			$bytes_written = file_put_contents($data['url'].'.html', $GLOBALS['m']->render($template, $data));
-			$bytes_written_2 = file_put_contents($data['url'].'.txt', serialize($data));
-			if (!$bytes_written || !$bytes_written_2) {
+			$error_code = self::write_to_file($data['url'].'.html', $GLOBALS['m']->render($template, $data));
+			$error_code_2 = self::write_to_file($data['url'].'.txt', serialize($data));
+			if ($error_code !== 0 || $error_code_2 !== 0) {
 				return 2;
 			}
 			$this->create_rss_feed($GLOBALS['rss_template']);
@@ -83,7 +77,10 @@ class Spage {
 
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$page_list[] = unserialize(file_get_contents($name));
+				$content = self::read_from_file($name);
+				if (!isset($content['draft'])) {
+					$page_list[] = $content;
+				}
 			}
 		}
 		$page_list = $this->aasort($page_list, 'timestamp');
@@ -92,8 +89,8 @@ class Spage {
 		$data['page_list'] = $page_list;
 		$data['content_html'] = Markdown($data['front_page_content']);
 
-		$bytes_written = file_put_contents('index.html', $GLOBALS['m']->render($template, $data));
-		$bytes_written_2 = file_put_contents('index.txt', serialize($data));
+		$bytes_written = self::write_to_file('index.html', $GLOBALS['m']->render($template, $data));
+		$bytes_written_2 = self::write_to_file('index.txt', serialize($data));
 		if (!$bytes_written || !$bytes_written_2) {
 			return 1;
 		}
@@ -114,7 +111,7 @@ class Spage {
 		$page_list = array();
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$data = unserialize(file_get_contents($name));
+				$data = self::read_from_file($name);
 				$this->add_new_page($data, $template, TRUE);
 			}
 		}
@@ -129,11 +126,10 @@ class Spage {
 	* @return array
 	*/
 	public function get_page($page) {
-		$page = str_replace(urlencode(self::DRAFTS_DIR), self::DRAFTS_DIR, $page);
 		if (!$this->starts_with($page, '/') &&
 			!$this->starts_with($page, '\\') &&
 			$this->ends_with($page, '.txt') && is_file($page)) {
-			$data = unserialize(file_get_contents($page));
+			$data = self::read_from_file($page);
 			return $data;
 		}
 		return array();
@@ -148,14 +144,14 @@ class Spage {
 	* @return void
 	*/
 	public function delete_page($page) {
-		$page = str_replace(urlencode(self::DRAFTS_DIR), self::DRAFTS_DIR, $page);
 		if (!$this->starts_with($page, '/') &&
 			!$this->starts_with($page, '\\') &&
 			$this->ends_with($page, '.txt') && is_file($page)) {
-			$page_without_draft = str_replace(self::DRAFTS_DIR, '', $page);
-			rename($page, self::TRASH_DIR.$page_without_draft);
+			rename(dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
+					dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page);
 			$page = str_replace('.txt', '.html', $page);
-			rename($page, self::TRASH_DIR.$page_without_draft);
+			rename(dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
+					dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page);
 		}
 	}
 
@@ -173,7 +169,10 @@ class Spage {
 
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$page_list[] = unserialize(file_get_contents($name));
+				$content = self::read_from_file($name);
+				if (!isset($content['draft'])) {
+					$page_list[] = $content;
+				}
 			}
 		}
 		$page_list = $this->aasort($page_list, 'timestamp');
@@ -181,7 +180,7 @@ class Spage {
 		array_splice($page_list, $number_of_items);
 		$data = array('pages' => $page_list);
 
-		$bytes_written = file_put_contents('rss.xml', $GLOBALS['m']->render($template, $data));
+		$bytes_written = self::write_to_file('rss.xml', $GLOBALS['m']->render($template, $data));
 		if (!$bytes_written) {
 			return 1;
 		}
@@ -199,24 +198,18 @@ class Spage {
 	public function list_all_pages() {
 		$dir = scandir('.');
 		$pages = array();
-
-		$draft_dir = scandir(self::DRAFTS_DIR);
 		$drafts = array();
-
 
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$content = unserialize(file_get_contents($name));
+				$content = self::read_from_file($name);
 				$content['url'] .= ".txt";
-				$pages[] = $content;
-			}
-		}
-
-		foreach ($draft_dir as $name) {
-			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$content = unserialize(file_get_contents(self::DRAFTS_DIR.$name));
-				$content['url'] .= ".txt";
-				$drafts[] = $content;
+				if (isset($content['draft']) && $content['draft'] === 'draft') {
+					$drafts[] = $content;
+				}
+				else {
+					$pages[] = $content;
+				}
 			}
 		}
 		return array('pages' => $pages, 'drafts' => $drafts);
@@ -271,6 +264,37 @@ class Spage {
 			$ret[$ii]=$array[$ii];
 		}
 		return $ret;
+	}
+
+
+	/**
+	* Writes given file to disk with given content
+	*
+	* @access private
+	* @param string $name
+	* @param string $content
+	* @return int
+	*/
+	private function write_to_file($name, $content) {
+		$bytes_written = file_put_contents(dirname(__FILE__).DIRECTORY_SEPARATOR.$name, $content);
+		if (!$bytes_written) {
+			return 2;
+		}
+		else {
+			return 0;
+		}
+	}
+
+	/**
+	* Reads given file from disk
+	*
+	* @access private
+	* @param string $name
+	* @return void
+	*/
+	private function read_from_file($name) {
+		$data = unserialize(file_get_contents(dirname(__FILE__).DIRECTORY_SEPARATOR.$name));
+		return $data;
 	}
 }
 
