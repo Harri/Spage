@@ -54,7 +54,7 @@ class Spage {
 		}
 		else {
 			if (!isset($data['draft'])) {
-				$error_code = $this->write_to_file($data['url'].'.html', serialize($data));
+				$error_code = $this->write_to_file($data['url'].'.html', $GLOBALS['m']->render($template, $data));
 			}
 			else {
 				$error_code = 0;

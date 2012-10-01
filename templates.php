@@ -58,7 +58,7 @@ $search_results_template = '<!doctype html>
 	{{/sliced}}
 	<ol>
 	{{#results}}
-		<li><a href="{{url}}">{{title}}</a> ({{date}})</li>
+		<li><a href="{{url}}.html">{{title}}</a> ({{date}})</li>
 	{{/results}}
 	</ol>
 	<form action="search.php" method="get">
