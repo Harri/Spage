@@ -4,12 +4,11 @@ $admin_template = '<!doctype html>
 	<head>
 	<meta charset="utf-8">
 	<title>Create new page - Spage</title>
-	<link rel="stylesheet" href="normalize.css">
 	<link rel="stylesheet" href="style.css">
 	<script type="text/javascript" src="lib/showdown.js"></script>
 	<script type="text/javascript" src="lib/showdown-gui.js"></script>
 </head>
-<body>
+<body id="admin">
 	<header>
 		<h1>Spage</h1>
 		<ul>
@@ -65,12 +64,11 @@ $admin_edit_template = '<!doctype html>
 	<head>
 	<meta charset="utf-8">
 	<title>Edit page - Spage</title>
-	<link rel="stylesheet" href="normalize.css">
 	<link rel="stylesheet" href="style.css">
 	<script type="text/javascript" src="lib/showdown.js"></script>
 	<script type="text/javascript" src="lib/showdown-gui.js"></script>
 </head>
-<body>
+<body id="admin">
 	<header>
 		<h1>Spage</h1>
 		<ul>
@@ -131,10 +129,9 @@ $admin_page_list_template = '<!doctype html>
 	<head>
 	<meta charset="utf-8">
 	<title>Edit page - Spage</title>
-	<link rel="stylesheet" href="normalize.css">
 	<link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body id="admin">
 	<header>
 		<h1>Spage</h1>
 		<ul>
@@ -179,10 +176,9 @@ $admin_front_page_template = '<!doctype html>
 	<head>
 	<meta charset="utf-8">
 	<title>Edit front page - Spage</title>
-	<link rel="stylesheet" href="normalize.css">
 	<link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body id="admin">
 	<header>
 		<h1>Spage</h1>
 		<ul>

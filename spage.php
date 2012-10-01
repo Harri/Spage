@@ -53,8 +53,14 @@ class Spage {
 			return 1;
 		}
 		else {
-			$error_code = self::write_to_file($data['url'].'.html', $GLOBALS['m']->render($template, $data));
-			$error_code_2 = self::write_to_file($data['url'].'.txt', serialize($data));
+			if (!isset($data['draft'])) {
+				$error_code = $this->write_to_file($data['url'].'.html', serialize($data));
+			}
+			else {
+				$error_code = 0;
+			}
+			$error_code_2 = $this->write_to_file($data['url'].'.txt', serialize($data));
+
 			if ($error_code !== 0 || $error_code_2 !== 0) {
 				return 2;
 			}
@@ -77,7 +83,7 @@ class Spage {
 
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$content = self::read_from_file($name);
+				$content = $this->read_from_file($name);
 				if (!isset($content['draft'])) {
 					$page_list[] = $content;
 				}
@@ -89,8 +95,8 @@ class Spage {
 		$data['page_list'] = $page_list;
 		$data['content_html'] = Markdown($data['front_page_content']);
 
-		$bytes_written = self::write_to_file('index.html', $GLOBALS['m']->render($template, $data));
-		$bytes_written_2 = self::write_to_file('index.txt', serialize($data));
+		$bytes_written = $this->write_to_file('index.html', $GLOBALS['m']->render($template, $data));
+		$bytes_written_2 = $this->write_to_file('index.txt', serialize($data));
 		if (!$bytes_written || !$bytes_written_2) {
 			return 1;
 		}
@@ -111,7 +117,7 @@ class Spage {
 		$page_list = array();
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$data = self::read_from_file($name);
+				$data = $this->read_from_file($name);
 				$this->add_new_page($data, $template, TRUE);
 			}
 		}
@@ -129,7 +135,7 @@ class Spage {
 		if (!$this->starts_with($page, '/') &&
 			!$this->starts_with($page, '\\') &&
 			$this->ends_with($page, '.txt') && is_file($page)) {
-			$data = self::read_from_file($page);
+			$data = $this->read_from_file($page);
 			return $data;
 		}
 		return array();
@@ -169,7 +175,7 @@ class Spage {
 
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$content = self::read_from_file($name);
+				$content = $this->read_from_file($name);
 				if (!isset($content['draft'])) {
 					$page_list[] = $content;
 				}
@@ -180,7 +186,7 @@ class Spage {
 		array_splice($page_list, $number_of_items);
 		$data = array('pages' => $page_list);
 
-		$bytes_written = self::write_to_file('rss.xml', $GLOBALS['m']->render($template, $data));
+		$bytes_written = $this->write_to_file('rss.xml', $GLOBALS['m']->render($template, $data));
 		if (!$bytes_written) {
 			return 1;
 		}
@@ -202,7 +208,7 @@ class Spage {
 
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$content = self::read_from_file($name);
+				$content = $this->read_from_file($name);
 				$content['url'] .= ".txt";
 				if (isset($content['draft']) && $content['draft'] === 'draft') {
 					$drafts[] = $content;
@@ -298,63 +304,71 @@ class Spage {
 	}
 }
 
-$s = new Spage;
+$current_file = explode('/', $_SERVER["PHP_SELF"]);
+$current_file = $current_file[count($current_file) - 1];
 
-if (!isset($_SERVER['HTTP_REFERER'])) {
-	$_SERVER['HTTP_REFERER'] = '';
-}
-$protocols = array('http://', 'https://');
-$http_referer_without_protocol = str_replace($protocols, '', $_SERVER['HTTP_REFERER']);
+$this_file = explode(DIRECTORY_SEPARATOR, __FILE__);
+$this_file = $this_file[count($this_file) - 1];
 
-// If no 'operation' parameters is set or if referer is not self,
-// 'operation' is set to empty (blocks CSRF vulnerability).
-if (!isset($_REQUEST['operation']) ||
-	!$s->starts_with($http_referer_without_protocol, $_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'])) {
-	$_REQUEST['operation'] = '';
-}
+if ($current_file === $this_file) {
+	$s = new Spage;
 
-switch ($_REQUEST['operation']) {
-	case 'create_page':
-		// Page creation and editing
-		$error_code = $s->add_new_page($_POST, $default_template, isset($_POST['overwrite']));
-		if ($error_code===1) {
-			$message = 'Page with same name already exists.';
-		}
-		else if ($error_code===2) {
-			$message = 'Something went wrong while creating the page.';
-		}
-		else {
-			$message = 'Page created.';
-		}
-		echo $m->render($admin_template, array('message' => $message));
-		break;
-	case 'edit_front_page':
-		$data = $s->get_page('index.txt');
-		echo $m->render($admin_front_page_template, $data);
-		break;
-	case 'create_front_page':
-		$s->create_front_page($_POST, $front_page_template);
-		echo $m->render($admin_template, array('message' => 'Front page created.'));
-		break;
-	case 'rebuild_pages':
-		$s->rebuild_pages($default_template);
-		echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
-		break;
-	case 'list_pages':
-		$data['all_pages'] = $s->list_all_pages();
-		echo $m->render($admin_page_list_template, $data);
-		break;
-	case 'edit_page':
-		$data = $s->get_page(urlencode($_GET['page']));
-		echo $m->render($admin_edit_template, $data);
-		break;
-	case 'delete_page':
-		$s->delete_page(urlencode($_GET['page']));
-		echo $m->render($admin_template, array('message' => 'Page deleted.'));
-		break;
-	default:
-		echo $m->render($admin_template, array());
-		break;
+	if (!isset($_SERVER['HTTP_REFERER'])) {
+		$_SERVER['HTTP_REFERER'] = '';
+	}
+	$protocols = array('http://', 'https://');
+	$http_referer_without_protocol = str_replace($protocols, '', $_SERVER['HTTP_REFERER']);
+
+	// If no 'operation' parameters is set or if referer is not self,
+	// 'operation' is set to empty (blocks CSRF vulnerability).
+	if (!isset($_REQUEST['operation']) ||
+		!$s->starts_with($http_referer_without_protocol, $_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'])) {
+		$_REQUEST['operation'] = '';
+	}
+
+	switch ($_REQUEST['operation']) {
+		case 'create_page':
+			// Page creation and editing
+			$error_code = $s->add_new_page($_POST, $default_template, isset($_POST['overwrite']));
+			if ($error_code===1) {
+				$message = 'Page with same name already exists.';
+			}
+			else if ($error_code===2) {
+				$message = 'Something went wrong while creating the page.';
+			}
+			else {
+				$message = 'Page created.';
+			}
+			echo $m->render($admin_template, array('message' => $message));
+			break;
+		case 'edit_front_page':
+			$data = $s->get_page('index.txt');
+			echo $m->render($admin_front_page_template, $data);
+			break;
+		case 'create_front_page':
+			$s->create_front_page($_POST, $front_page_template);
+			echo $m->render($admin_template, array('message' => 'Front page created.'));
+			break;
+		case 'rebuild_pages':
+			$s->rebuild_pages($default_template);
+			echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
+			break;
+		case 'list_pages':
+			$data['all_pages'] = $s->list_all_pages();
+			echo $m->render($admin_page_list_template, $data);
+			break;
+		case 'edit_page':
+			$data = $s->get_page(urlencode($_GET['page']));
+			echo $m->render($admin_edit_template, $data);
+			break;
+		case 'delete_page':
+			$s->delete_page(urlencode($_GET['page']));
+			echo $m->render($admin_template, array('message' => 'Page deleted.'));
+			break;
+		default:
+			echo $m->render($admin_template, array());
+			break;
+	}
 }
 
 /*

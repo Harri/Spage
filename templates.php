@@ -5,7 +5,6 @@ $default_template = '<!doctype html>
 	<meta charset="utf-8">
 	<meta name="dcterms.created" content="{{date}}">
 	<title>{{title}}</title>
-	<link rel="stylesheet" href="normalize.css">
 	<link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,7 +22,6 @@ $front_page_template = '<!doctype html>
 	<head>
 	<meta charset="utf-8">
 	<title>Spage</title>
-	<link rel="stylesheet" href="normalize.css">
 	<link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -36,6 +34,69 @@ $front_page_template = '<!doctype html>
 		<li><a href="{{url}}.html">{{title}}</a> ({{date}})</li>
 	{{/page_list}}
 	</ol>
+	<footer>
+	</footer>
+</body>
+</html>';
+
+$search_results_template = '<!doctype html>
+<html lang="en">
+	<head>
+	<meta charset="utf-8">
+	<title>Search results for "{{terms}}"</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<header>
+		<h1>Search results for "{{terms}}"</h1>
+	</header>
+	{{#dropped}}
+		<p>Following search terms were not used since they are under 3 characters: {{terms}}</p>
+	{{/dropped}}
+	{{#sliced}}
+		<p>Only first 10 search terms were used. Follwing were not used: {{terms}}</p>
+	{{/sliced}}
+	<ol>
+	{{#results}}
+		<li><a href="{{url}}">{{title}}</a> ({{date}})</li>
+	{{/results}}
+	</ol>
+	<form action="search.php" method="get">
+		<fieldset>
+			<legend></legend>
+			<label for="terms">Search terms</label>
+			<input name="terms" id="terms" required="required" value="{{orig_terms}}">
+		</fieldset>
+		<fieldset>
+			<button type="submit">Submit</button>
+		</fieldset>
+	</form>
+	<footer>
+	</footer>
+</body>
+</html>';
+
+$search_template = '<!doctype html>
+<html lang="en">
+	<head>
+	<meta charset="utf-8">
+	<title>Search</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<header>
+		<h1>Search</h1>
+	</header>
+	<form action="search.php" method="get">
+		<fieldset>
+			<legend></legend>
+			<label for="terms">Search terms</label>
+			<input name="terms" id="terms" required="required">
+		</fieldset>
+		<fieldset>
+			<button type="submit">Submit</button>
+		</fieldset>
+	</form>
 	<footer>
 	</footer>
 </body>
