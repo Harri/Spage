@@ -119,7 +119,7 @@ $admin_edit_template = '<!doctype html>
 			</select>
 		</span>
 		<div id="processingTime" title="Last processing time">0 ms</div>
-		Or <a href="spage.php?operation=delete_page&page={{url}}.txt">delete</a> the page.
+		Or <a href="spage.php?operation=delete_page&page={{url}}">delete</a> the page.
 	</footer>
 </body>
 </html>';

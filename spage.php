@@ -20,10 +20,27 @@ $m = new Mustache;
 class Spage {
 
 	const TRASH_DIR = 'trash';
+	const RSS_ITEMS = 5;
+	const DATA_EXT = '.spage';
+	const PAGE_EXT = '.html';
 
 	/**
 	* Adds new page and updates RSS feed.
 	* Does not overwrite existing files, unless told so.
+	* 
+	* Each page has the following data
+	* 	url - it's the same as file name, excluding file extension
+	* 	title - title for the page
+	* 	content - exactly the content that was written
+	* 	content_html - same as content, but went through Markdown
+	* 	date - date of creation YYYY-MM-DD
+	* 	time - time of creation HH:MM
+	* 	timestamp - same as date and time, but in UNIX time
+	* 
+	* Edited pages have also the following data
+	* 	overwrite - always TRUE
+	* 	date_edited - date when edited
+	* 	time_edited - time when edited
 	*
 	* @access public
 	* @param array $data
@@ -49,28 +66,29 @@ class Spage {
 			$data['timestamp'] = time();
 		}
 
-		if (file_exists($data['url'].'.html') && $overwrite!==TRUE) {
+		if (file_exists($data['url'].self::PAGE_EXT) && $overwrite!==TRUE) {
 			return 1;
 		}
 		else {
+			$error_code = $this->write_to_file($data['url'].self::DATA_EXT, serialize($data));
+			$error_code_2 = 0;
 			if (!isset($data['draft'])) {
-				$error_code = $this->write_to_file($data['url'].'.html', $GLOBALS['m']->render($template, $data));
+				$error_code_2 = $this->write_to_file($data['url'].self::PAGE_EXT, $GLOBALS['m']->render($template, $data));
 			}
-			else {
-				$error_code = 0;
-			}
-			$error_code_2 = $this->write_to_file($data['url'].'.txt', serialize($data));
 
 			if ($error_code !== 0 || $error_code_2 !== 0) {
 				return 2;
 			}
 			$this->create_rss_feed($GLOBALS['rss_template']);
-			return 0;
+			return 0;			
 		}
 	}
 
 	/**
 	* Creates or updates front page
+	*
+	* Frontpage consists of list of all pages sorted by timestamp and
+	* content written by admin.
 	*
 	* @access public
 	* @param array $data
@@ -78,25 +96,17 @@ class Spage {
 	* @return int
 	*/
 	public function create_front_page($data, $template) {
-		$dir = scandir('.');
-		$page_list = array();
+		$page_list = $this->list_all_pages();
+		$page_list = $page_list['pages'];
 
-		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$content = $this->read_from_file($name);
-				if (!isset($content['draft'])) {
-					$page_list[] = $content;
-				}
-			}
-		}
 		$page_list = $this->aasort($page_list, 'timestamp');
 		$page_list = array_reverse($page_list);
 
 		$data['page_list'] = $page_list;
 		$data['content_html'] = Markdown($data['front_page_content']);
 
-		$bytes_written = $this->write_to_file('index.html', $GLOBALS['m']->render($template, $data));
-		$bytes_written_2 = $this->write_to_file('index.txt', serialize($data));
+		$bytes_written = $this->write_to_file('index'.self::PAGE_EXT, $GLOBALS['m']->render($template, $data));
+		$bytes_written_2 = $this->write_to_file('index'.self::DATA_EXT, serialize($data));
 		if (!$bytes_written || !$bytes_written_2) {
 			return 1;
 		}
@@ -113,19 +123,16 @@ class Spage {
 	* @return void
 	*/
 	public function rebuild_pages($template) {
-		$dir = scandir('.');
-		$page_list = array();
-		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$data = $this->read_from_file($name);
-				$this->add_new_page($data, $template, TRUE);
-			}
+		$page_list = $this->list_all_pages();
+		$page_list = $page_list['pages'];
+		foreach ($page_list as $key => $value) {
+			$this->add_new_page($value, $template, TRUE);
 		}
 	}
 
 	/**
-	* Gets given page. Requested page name must not contain / or \
-	* and it must end with .txt
+	* Gets given page. Requested page name must not contain '/' or '\'
+	* and it must end with '.spage'
 	*
 	* @access public
 	* @param string $page
@@ -134,7 +141,7 @@ class Spage {
 	public function get_page($page) {
 		if (!$this->starts_with($page, '/') &&
 			!$this->starts_with($page, '\\') &&
-			$this->ends_with($page, '.txt') && is_file($page)) {
+			$this->ends_with($page, self::DATA_EXT) && is_file($page)) {
 			$data = $this->read_from_file($page);
 			return $data;
 		}
@@ -143,7 +150,7 @@ class Spage {
 
 
 	/**
-	* Moves page (*.html and *.txt) to trash/ directory.
+	* Moves page (*.html and *.spage) to trash directory.
 	*
 	* @access public
 	* @param string $page
@@ -152,38 +159,32 @@ class Spage {
 	public function delete_page($page) {
 		if (!$this->starts_with($page, '/') &&
 			!$this->starts_with($page, '\\') &&
-			$this->ends_with($page, '.txt') && is_file($page)) {
+			$this->ends_with($page, self::DATA_EXT) && is_file($page)) {
 			rename(dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
 					dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page);
-			$page = str_replace('.txt', '.html', $page);
+			$page = str_replace(self::DATA_EXT, self::PAGE_EXT, $page);
 			rename(dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
 					dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page);
+			$this->create_rss_feed($GLOBALS['rss_template']);
 		}
 	}
 
 	/**
-	* Creates (and updates) RSS page. Returns 0 if everything went ok.
+	* Creates (and updates) RSS page.
+	*
+	* By default will list five newest pages sorted by timestamp.
 	*
 	* @access public
 	* @param string $template
 	* @param int $number_of_items (default: 5)
 	* @return int
 	*/
-	public function create_rss_feed($template, $number_of_items=5) {
-		$dir = scandir('.');
-		$page_list = array();
-
-		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
-				$content = $this->read_from_file($name);
-				if (!isset($content['draft'])) {
-					$page_list[] = $content;
-				}
-			}
-		}
+	public function create_rss_feed($template) {
+		$page_list = $this->list_all_pages();
+		$page_list = $page_list['pages'];
 		$page_list = $this->aasort($page_list, 'timestamp');
 		$page_list = array_reverse($page_list);
-		array_splice($page_list, $number_of_items);
+		array_splice($page_list, self::RSS_ITEMS);
 		$data = array('pages' => $page_list);
 
 		$bytes_written = $this->write_to_file('rss.xml', $GLOBALS['m']->render($template, $data));
@@ -196,7 +197,8 @@ class Spage {
 	}
 
 	/**
-	* Gets all pages
+	* Gets all pages and drafts
+	*
 	*
 	* @access public
 	* @return array
@@ -207,9 +209,8 @@ class Spage {
 		$drafts = array();
 
 		foreach ($dir as $name) {
-			if ($this->ends_with($name, '.txt') && $name !== 'index.txt') {
+			if ($this->ends_with($name, self::DATA_EXT) && $name !== 'index'.self::DATA_EXT) {
 				$content = $this->read_from_file($name);
-				$content['url'] .= ".txt";
 				if (isset($content['draft']) && $content['draft'] === 'draft') {
 					$drafts[] = $content;
 				}
@@ -319,7 +320,7 @@ if ($current_file === $this_file) {
 	$protocols = array('http://', 'https://');
 	$http_referer_without_protocol = str_replace($protocols, '', $_SERVER['HTTP_REFERER']);
 
-	// If no 'operation' parameters is set or if referer is not self,
+	// If no 'operation' parameters is not set or if referer is not self,
 	// 'operation' is set to empty (blocks CSRF vulnerability).
 	if (!isset($_REQUEST['operation']) ||
 		!$s->starts_with($http_referer_without_protocol, $_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'])) {
@@ -342,7 +343,7 @@ if ($current_file === $this_file) {
 			echo $m->render($admin_template, array('message' => $message));
 			break;
 		case 'edit_front_page':
-			$data = $s->get_page('index.txt');
+			$data = $s->get_page('index'.Spage::DATA_EXT);
 			echo $m->render($admin_front_page_template, $data);
 			break;
 		case 'create_front_page':
@@ -358,11 +359,11 @@ if ($current_file === $this_file) {
 			echo $m->render($admin_page_list_template, $data);
 			break;
 		case 'edit_page':
-			$data = $s->get_page(urlencode($_GET['page']));
+			$data = $s->get_page(urlencode($_GET['page']).Spage::DATA_EXT);
 			echo $m->render($admin_edit_template, $data);
 			break;
 		case 'delete_page':
-			$s->delete_page(urlencode($_GET['page']));
+			$s->delete_page(urlencode($_GET['page']).Spage::DATA_EXT);
 			echo $m->render($admin_template, array('message' => 'Page deleted.'));
 			break;
 		default:
@@ -373,7 +374,7 @@ if ($current_file === $this_file) {
 
 /*
 
-Copyright (C) 2012 Harri Paavola
+Copyright Harri Paavola
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

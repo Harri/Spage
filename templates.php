@@ -31,7 +31,7 @@ $front_page_template = '<!doctype html>
 	{{{content_html}}}
 	<ol>
 	{{#page_list}}
-		<li><a href="{{url}}.html">{{title}}</a> ({{date}})</li>
+		<li><a href="{{url}}">{{title}}</a> ({{date}})</li>
 	{{/page_list}}
 	</ol>
 	<footer>

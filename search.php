@@ -21,7 +21,7 @@ function search($terms) {
     foreach ($pages as $key => $value) {
         $value = analyze_page($value, $terms);
         if ($value['relevance'] > 0) {
-            $value['url'] = str_replace('.txt', '', $value['url']);
+            $value['url'] = str_replace('.spage', '', $value['url']);
             $results[] = $value;
         }
     }
