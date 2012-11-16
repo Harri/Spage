@@ -1,6 +1,6 @@
 <?php
 $default_template = '<!doctype html>
-<html class="page active" lang="en">
+<html lang="en">
 	<head>
 	<meta charset="utf-8">
 	<meta name="dcterms.created" content="{{date}}">
@@ -29,6 +29,12 @@ $front_page_template = '<!doctype html>
 		<h1>Spage</h1>
 	</header>
 	{{{content_html}}}
+
+	{{#few_latests}}
+		<h1><a href="{{url}}">{{title}}</a></h1>
+		{{{content_html}}}
+	{{/few_latests}}
+
 	<ol>
 	{{#page_list}}
 		<li><a href="{{url}}">{{title}}</a> ({{date}})</li>

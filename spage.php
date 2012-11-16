@@ -21,6 +21,7 @@ class Spage {
 
 	const TRASH_DIR = 'trash';
 	const RSS_ITEMS = 5;
+	const FRONT_ITEMS = 5;
 	const DATA_EXT = '.spage';
 	const PAGE_EXT = '.html';
 
@@ -104,6 +105,9 @@ class Spage {
 
 		$data['page_list'] = $page_list;
 		$data['content_html'] = Markdown($data['front_page_content']);
+
+		array_splice($page_list, self::FRONT_ITEMS);
+		$data['few_latests'] = $page_list;	
 
 		$bytes_written = $this->write_to_file('index'.self::PAGE_EXT, $GLOBALS['m']->render($template, $data));
 		$bytes_written_2 = $this->write_to_file('index'.self::DATA_EXT, serialize($data));
