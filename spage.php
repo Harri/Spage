@@ -67,12 +67,14 @@ class Spage {
 			$data['timestamp'] = time();
 		}
 
+		// only edits can overwrite
 		if (file_exists($data['url'].self::PAGE_EXT) && $overwrite!==TRUE) {
 			return 1;
 		}
 		else {
 			$error_code = $this->write_to_file($data['url'].self::DATA_EXT, serialize($data));
 			$error_code_2 = 0;
+			// drafts don't get .html page
 			if (!isset($data['draft'])) {
 				$error_code_2 = $this->write_to_file($data['url'].self::PAGE_EXT, $GLOBALS['m']->render($template, $data));
 			}
@@ -147,6 +149,13 @@ class Spage {
 			!$this->starts_with($page, '\\') &&
 			$this->ends_with($page, self::DATA_EXT) && is_file($page)) {
 			$data = $this->read_from_file($page);
+			if (isset($data['draft']) && $data['draft'] === 'draft') {
+				$data['draft_checked'] = 'checked';
+			}
+			
+			if (isset($data['unlisted']) && $data['unlisted'] === 'unlisted') {
+				$data['unlisted_checked'] = 'checked';
+			}
 			return $data;
 		}
 		return array();
@@ -211,6 +220,7 @@ class Spage {
 		$dir = scandir('.');
 		$pages = array();
 		$drafts = array();
+		$unlisted = array();
 
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, self::DATA_EXT) && $name !== 'index'.self::DATA_EXT) {
@@ -218,12 +228,15 @@ class Spage {
 				if (isset($content['draft']) && $content['draft'] === 'draft') {
 					$drafts[] = $content;
 				}
+				else if (isset($content['unlisted']) && $content['unlisted'] === 'unlisted') {
+					$unlisted[] = $content;
+				}
 				else {
 					$pages[] = $content;
 				}
 			}
 		}
-		return array('pages' => $pages, 'drafts' => $drafts);
+		return array('pages' => $pages, 'unlisted' => $unlisted, 'drafts' => $drafts);
 	}
 
 	/**

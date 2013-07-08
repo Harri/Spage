@@ -33,6 +33,7 @@ $admin_template = '<!doctype html>
 		<fieldset>
 			<button type="submit">Submit</button>
 			<input type="checkbox" id="draft" name="draft" value="draft"><label for="draft">Save as draft</label>
+			<input type="checkbox" id="unlisted" name="unlisted" value="unlisted"><label for="unlisted">Save as unlisted</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">
@@ -96,7 +97,8 @@ $admin_edit_template = '<!doctype html>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
-			<input type="checkbox" id="draft" name="draft" value="draft"><label for="draft">Save as draft</label>
+			<input type="checkbox" id="draft" name="draft" value="draft" {{draft_checked}}><label for="draft">Save as draft</label>
+			<input type="checkbox" id="unlisted" name="unlisted" value="unlisted" {{unlisted_checked}}><label for="unlisted">Save as unlisted</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">
@@ -153,6 +155,11 @@ $admin_page_list_template = '<!doctype html>
 					{{#pages}}
 						<option value="{{url}}">{{title}} ({{url}})</option>
 					{{/pages}}
+					</optgroup>
+					<optgroup label="Unlisted">
+					{{#unlisted}}
+						<option value="{{url}}">{{title}} ({{url}})</option>
+					{{/unlisted}}
 					</optgroup>
 					<optgroup label="Drafts">
 					{{#drafts}}
