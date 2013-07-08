@@ -211,6 +211,7 @@ class Spage {
 		$dir = scandir('.');
 		$pages = array();
 		$drafts = array();
+		$unlisted = array();
 
 		foreach ($dir as $name) {
 			if ($this->ends_with($name, self::DATA_EXT) && $name !== 'index'.self::DATA_EXT) {
@@ -218,6 +219,9 @@ class Spage {
 				if (isset($content['draft']) && $content['draft'] === 'draft') {
 					$drafts[] = $content;
 				}
+				else if (isset($content['unlisted']) && $content['unlisted'] === 'unlisted') {
+					// at the moment we don't do anything with these, we just filter them
+					$unlisted[] = $unlisted;
 				else {
 					$pages[] = $content;
 				}
