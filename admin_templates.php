@@ -32,8 +32,7 @@ $admin_template = '<!doctype html>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
-			<input type="radio" name="publicity" id="draft" value="draft"><label for="draft">Save as draft</label>
-			<input type="radio" name="publicity" id="unlisted" value="unlisted"><label for="unlisted">Save as unlisted</label>
+			<input type="checkbox" id="draft" name="draft" value="draft"><label for="draft">Save as draft</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">
@@ -97,8 +96,7 @@ $admin_edit_template = '<!doctype html>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
-			<input type="radio" name="publicity" id="draft" value="draft"><label for="draft">Save as draft</label>
-			<input type="radio" name="publicity" id="unlisted" value="unlisted"><label for="unlisted">Save as unlisted</label>
+			<input type="checkbox" id="draft" name="draft" value="draft"><label for="draft">Save as draft</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">
