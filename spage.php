@@ -130,9 +130,13 @@ class Spage {
 	*/
 	public function rebuild_pages($template) {
 		$page_list = $this->list_all_pages();
-		$page_list = $page_list['pages'];
-		foreach ($page_list as $key => $value) {
-			$this->add_new_page($value, $template, TRUE);
+		$pages = array();
+		$pages[] = $page_list['pages'];
+		$pages[] = $page_list['unlisted'];
+		foreach ($page_list as $type => $item) {
+			foreach ($item as $page => $content) {
+				$this->add_new_page($content, $template, TRUE);
+			}
 		}
 	}
 
