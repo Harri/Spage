@@ -108,6 +108,10 @@ class Spage {
 		$data['page_list'] = $page_list;
 		$data['content_html'] = Markdown($data['front_page_content']);
 
+		$data['date'] = date('Y-m-d');
+		$data['time'] = date('H:i');
+		$data['timestamp'] = time();
+
 		array_splice($page_list, self::FRONT_ITEMS);
 		$data['few_latests'] = $page_list;	
 
