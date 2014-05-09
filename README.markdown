@@ -3,11 +3,13 @@ Spage
 Simple flat file CMS written in PHP. Each page gets its own `*.html` file which is served for users and `*.spage` file is kept for maintenance and search purposes. 
 
 * Create and edit pages using Markdown
-    * Live preview is shown while creating and editing pages using Showdown.js
-* Save pages as drafts or delete old ones
+  * Live preview is shown while creating and editing pages using Showdown.js
+* Save pages as drafts or unlisted
 * Templates are done using Mustache.php
 * RSS
 * Search
+* Comments
+  * Moderation for admins
 
 Configuration and usage
 -
