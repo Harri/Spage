@@ -45,8 +45,7 @@ function search($terms) {
 function analyze_page($page, $terms) {
   $orig_page = $page;
   $page = array(
-    'title' => $page['title'],
-    'url' => $page['url'],
+    'title' => $page['title'].' '.$page['url'],
     'content' => $page['content']
   );
   $terms = array_map('mb_strtolower', $terms);
@@ -54,36 +53,21 @@ function analyze_page($page, $terms) {
   $page = array_map('mb_strtolower', $page);
   $page = array_map('strip_tags', $page);
   $orig_page['relevance'] = 0;
-  // Go through every data field in page
-  foreach ($page as $key => $value) {
-    // Go through every search term with every data field
-    foreach ($terms as $term_key => $term_value) {
-      $title_hit = FALSE;
-      switch ($key) {
-        case 'title':
-          $occurrences = mb_strstr($value, $term_value);
-          if ($occurrences) {
-            $orig_page['relevance'] = $orig_page['relevance'] + 10;
-            $title_hit = TRUE;
-          }
-          break;
-        case 'url':
-          $occurrences = mb_strstr($value, $term_value);
-          if (!$title_hit && $occurrences) {
-            $orig_page['relevance'] = $orig_page['relevance'] + 10;
-          }
-          break;
-        case 'content':
-          $occurrences = mb_substr_count($value, $term_value);
-          if ($occurrences > 0) {
-            $orig_page['relevance'] = $orig_page['relevance'] + $occurrences;
-          }
-          break;
-        default:
-          break;
-      }
+
+  // Loops through all search terms and calculates relevancy
+  foreach ($terms as $term_key => $term_value) {
+    // Check if search term is in title or url
+    $occurrences = mb_strstr($page['title'], $term_value);
+    if ($occurrences) {
+      $orig_page['relevance'] = $orig_page['relevance'] + 10;
+    }
+    // Check if search term is in content
+    $occurrences = mb_substr_count($page['content'], $term_value);
+    if ($occurrences > 0) {
+      $orig_page['relevance'] = $orig_page['relevance'] + $occurrences;
     }
   }
+
   return $orig_page;
 }
 
