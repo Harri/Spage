@@ -44,6 +44,13 @@ class Spage {
   *   overwrite - always TRUE
   *   date_edited - date when edited
   *   time_edited - time when edited
+  *   timestamp_edited - same as date and time, but in UNIX time
+  *
+  * Each page might have any of the following data
+  *    allow_comments - If set, uses template with comments and comment form
+  *    draft - If set, no *.html file is created
+  *    unlisted - If set, the page is not shown in RSS, page list or search
+  *
   *
   * @access public
   * @param array $data
@@ -52,6 +59,7 @@ class Spage {
   * @return int
   */
   public function add_new_page($data, $template, $overwrite=FALSE) {
+    $data['url'] = mb_substr($data['url'], 0, 200);
     $data['url'] = urlencode($data['url']);
     $data['title'] = htmlspecialchars($data['title']);
     $data['content_html'] = Markdown($data['content']);
@@ -62,6 +70,7 @@ class Spage {
       $data['timestamp'] = htmlspecialchars($data['timestamp']);
       $data['date_edited'] = date('Y-m-d');
       $data['time_edited'] = date('H:i');
+      $data['timestamp_edited'] = time();
     }
     else {
       $data['date'] = date('Y-m-d');
@@ -74,11 +83,17 @@ class Spage {
       return 1;
     }
     else {
-      $error_code = $this->write_to_file($data['url'].self::DATA_EXT, serialize($data));
+      $error_code = $this->write_to_file(
+        $data['url'].self::DATA_EXT,
+        serialize($data)
+      );
       $error_code_2 = 0;
       // drafts don't get .html page
       if (!isset($data['draft'])) {
-        $error_code_2 = $this->write_to_file($data['url'].self::PAGE_EXT, $GLOBALS['m']->render($template, $data));
+        $error_code_2 = $this->write_to_file(
+          $data['url'].self::PAGE_EXT,
+          $GLOBALS['m']->render($template, $data)
+        );
       }
 
       if ($error_code !== 0 || $error_code_2 !== 0) {
@@ -90,9 +105,40 @@ class Spage {
   }
 
   /**
+  * Saves edited page. Merges new data to old data.
+  *
+  * @access public
+  * @param array $data
+  * @param string $template
+  * @return int
+  */
+  public function edit_page($data, $template) {
+    $orig_page = $this->get_page($data['url'].self::DATA_EXT);
+    $new_page = array_merge($orig_page, $data);
+
+    if (!isset($data['unlisted'])) {
+      unset($new_page['unlisted']);
+      unset($new_page['unlisted_checked']);
+    }
+
+    if (!isset($data['draft'])) {
+      unset($new_page['draft']);
+      unset($new_page['draft_checked']);
+    }
+
+    if (!isset($data['allow_comments'])) {
+      unset($new_page['allow_comments']);
+      unset($new_page['allow_comments_checked']);
+    }
+
+    $error = $this->add_new_page($new_page, $template, TRUE);
+    return $error;
+  }
+
+  /**
   * Creates or updates front page
   *
-  * Frontpage consists of list of all pages sorted by timestamp and
+  * Front page consists of list of all pages sorted by timestamp and
   * content written by admin.
   *
   * @access public
@@ -110,15 +156,33 @@ class Spage {
     $data['page_list'] = $page_list;
     $data['content_html'] = Markdown($data['front_page_content']);
 
-    $data['date'] = date('Y-m-d');
-    $data['time'] = date('H:i');
-    $data['timestamp'] = time();
+    $orig_content = $this->get_page('index.spage');
+    if (isset($orig_content['date'])) {
+      $data['date'] = $orig_content['date'];
+      $data['time'] = $orig_content['time'];
+      $data['timestamp'] = $orig_content['timestamp'];
+    }
+    else {
+      $data['date'] = date('Y-m-d');
+      $data['time'] = date('H:i');
+      $data['timestamp'] = time();
+    }
+
+    $data['date_edited'] = date('Y-m-d');
+    $data['time_edited'] = date('H:i');
+    $data['timestamp_edited'] = time();
 
     array_splice($page_list, self::FRONT_ITEMS);
     $data['few_latests'] = $page_list;  
 
-    $bytes_written = $this->write_to_file('index'.self::PAGE_EXT, $GLOBALS['m']->render($template, $data));
-    $bytes_written_2 = $this->write_to_file('index'.self::DATA_EXT, serialize($data));
+    $bytes_written = $this->write_to_file(
+      'index'.self::PAGE_EXT,
+      $GLOBALS['m']->render($template, $data)
+    );
+    $bytes_written_2 = $this->write_to_file(
+      'index'.self::DATA_EXT,
+      serialize($data)
+    );
     if (!$bytes_written || !$bytes_written_2) {
       return 1;
     }
@@ -132,12 +196,20 @@ class Spage {
   *
   * @access public
   * @param string $template
+  * @param string $template_with_comments
   * @return void
   */
-  public function rebuild_pages($template) {
+  public function rebuild_pages($template, $template_with_comments) {
     $page_list = $this->list_all_pages();
     foreach ($page_list as $type => $item) {
       foreach ($item as $page => $content) {
+        // If page has comments enabled, let's use proper template
+        if (
+          isset($content['allow_comments']) &&
+          $content['allow_comments'] === 'allow_comments'
+        ) {
+          $template = $template_with_comments;
+        }
         $this->add_new_page($content, $template, TRUE);
       }
     }
@@ -152,6 +224,7 @@ class Spage {
   * @return array
   */
   public function get_page($page) {
+    $page_name = mb_substr($page_name, 0, 200);
     if (!$this->starts_with($page, '/') &&
       !$this->starts_with($page, '\\') &&
       $this->ends_with($page, self::DATA_EXT) && is_file($page)) {
@@ -162,6 +235,13 @@ class Spage {
       
       if (isset($data['unlisted']) && $data['unlisted'] === 'unlisted') {
         $data['unlisted_checked'] = 'checked';
+      }
+
+      if (
+        isset($data['allow_comments']) &&
+        $data['allow_comments'] === 'allow_comments'
+      ) {
+        $data['allow_comments_checked'] = 'checked';
       }
       return $data;
     }
@@ -180,11 +260,15 @@ class Spage {
     if (!$this->starts_with($page, '/') &&
       !$this->starts_with($page, '\\') &&
       $this->ends_with($page, self::DATA_EXT) && is_file($page)) {
-      rename(dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
-          dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page);
+      rename(
+        dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
+        dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page
+      );
       $page = str_replace(self::DATA_EXT, self::PAGE_EXT, $page);
-      rename(dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
-          dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page);
+      rename(
+        dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
+        dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page
+      );
       $this->create_rss_feed($GLOBALS['rss_template']);
     }
   }
@@ -207,7 +291,9 @@ class Spage {
     array_splice($page_list, self::RSS_ITEMS);
     $data = array('pages' => $page_list);
 
-    $bytes_written = $this->write_to_file('rss.xml', $GLOBALS['m']->render($template, $data));
+    $bytes_written = $this->write_to_file(
+      'rss.xml', $GLOBALS['m']->render($template, $data)
+    );
     if (!$bytes_written) {
       return 1;
     }
@@ -230,12 +316,18 @@ class Spage {
     $unlisted = array();
 
     foreach ($dir as $name) {
-      if ($this->ends_with($name, self::DATA_EXT) && $name !== 'index'.self::DATA_EXT) {
+      if (
+        $this->ends_with($name, self::DATA_EXT) &&
+        $name !== 'index'.self::DATA_EXT
+      ) {
         $content = $this->read_from_file($name);
         if (isset($content['draft']) && $content['draft'] === 'draft') {
           $drafts[] = $content;
         }
-        else if (isset($content['unlisted']) && $content['unlisted'] === 'unlisted') {
+        else if (
+          isset($content['unlisted']) &&
+          $content['unlisted'] === 'unlisted'
+        ) {
           $unlisted[] = $content;
         }
         else {
@@ -243,7 +335,105 @@ class Spage {
         }
       }
     }
-    return array('pages' => $pages, 'unlisted' => $unlisted, 'drafts' => $drafts);
+    return array(
+      'pages' => $pages,
+      'unlisted' => $unlisted,
+      'drafts' => $drafts
+    );
+  }
+
+
+  /**
+  * Lists all comments from all pages.
+  *
+  * @access public
+  * @param bool $limit
+  * @param int $amount
+  * @return array
+  */
+  public function list_all_comments($limit = FALSE, $amount = 0) {
+    $all_pages = $this->list_all_pages();
+    $comments = array();
+
+    // Loops through pages, unlisteds and drafts
+    foreach ($all_pages as $page_type) {
+      // Loops through all pages in one page type
+      foreach ($page_type as $page) {
+        if (isset($page['comments'])) {
+          // Loops through all comments in one page
+          foreach ($page['comments'] as $c) {
+            $comments[] = array(
+              'author' => $c['author'],
+              'comment' => $c['comment'],
+              'timestamp' => $c['timestamp'],
+              'uuid' => $c['uuid']
+            );
+          }
+        }
+      }
+    }
+
+    $comments = $this->aasort($comments, 'timestamp');
+    $comments = array_reverse($comments);
+    $comments = array('comments' => $comments);
+    if ($limit) {
+      $comments['comments'] = array_slice($comments['comments'], 0, $amount);
+    }
+
+    return $comments;
+  }
+
+  /**
+  * Deletes given comments
+  *
+  * @access public
+  * @param array $bad_comments
+  * @return void
+  */
+  public function delete_comments($bad_comments) {
+    $affected_pages = array();
+    // Get list of affected pages
+    foreach ($bad_comments as $comment) {
+      $comment = explode('_', $comment);
+      $affected_pages[] = $comment[0];
+    }
+    $affected_pages = array_unique($affected_pages);
+
+    // Open each affected page
+    foreach ($affected_pages as $page) {
+      $page_content = $this->get_page($page.self::DATA_EXT);
+      if (empty($page_content)) {
+        break;
+      }
+      // Loop through all comments in current page
+      $comments_count = count($page_content['comments']); 
+      for ($i = 0; $i <= $comments_count; $i++) {
+        // If current comment UUID is marked for deletion > unset
+        if (in_array($page_content['comments'][$i]['uuid'], $bad_comments)) {
+          unset($page_content['comments'][$i]);
+        }
+      }
+      // Reset comment indexes, remove comments section if none is left
+      $comments = array_values($page_content['comments']);
+      if (!empty($comments)) {
+        $page_content['comments'] = $comments;
+      }
+      else {
+        unset($page_content['comments']);
+      }
+
+      $this->write_to_file(
+        $page_content['url'].Spage::DATA_EXT,
+        serialize($page_content)
+      );
+      $this->write_to_file(
+        $page_content['url'].Spage::PAGE_EXT,
+        $GLOBALS['m']->render(
+          $GLOBALS['default_template_with_comments'],
+          $page_content
+        )
+      );
+    }
   }
 
   /**
@@ -305,13 +495,16 @@ class Spage {
   /**
   * Writes given file to disk with given content
   *
-  * @access private
+  * @access public
   * @param string $name
   * @param string $content
   * @return int
   */
-  private function write_to_file($name, $content) {
-    $bytes_written = file_put_contents(dirname(__FILE__).DIRECTORY_SEPARATOR.$name, $content);
+  public function write_to_file($name, $content) {
+    $bytes_written = file_put_contents(
+      dirname(__FILE__).DIRECTORY_SEPARATOR.$name,
+      $content
+    );
     if (!$bytes_written) {
       return 2;
     }
@@ -328,7 +521,9 @@ class Spage {
   * @return void
   */
   private function read_from_file($name) {
-    $data = unserialize(file_get_contents(dirname(__FILE__).DIRECTORY_SEPARATOR.$name));
+    $data = unserialize(file_get_contents(
+      dirname(__FILE__).DIRECTORY_SEPARATOR.$name)
+    );
     return $data;
   }
 }
@@ -346,19 +541,34 @@ if ($current_file === $this_file) {
     $_SERVER['HTTP_REFERER'] = '';
   }
   $protocols = array('http://', 'https://');
-  $http_referer_without_protocol = str_replace($protocols, '', $_SERVER['HTTP_REFERER']);
+  $http_referer_without_protocol = str_replace(
+    $protocols,
+    '',
+    $_SERVER['HTTP_REFERER']
+  );
 
   // If no 'operation' parameters is not set or if referer is not self,
   // 'operation' is set to empty (blocks CSRF vulnerability).
-  if (!isset($_REQUEST['operation']) ||
-    !$s->starts_with($http_referer_without_protocol, $_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'])) {
+  if (!isset($_REQUEST['operation']) || !$s->starts_with(
+    $http_referer_without_protocol,
+    $_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'])
+  ) {
     $_REQUEST['operation'] = '';
   }
 
   switch ($_REQUEST['operation']) {
     case 'create_page':
-      // Page creation and editing
-      $error_code = $s->add_new_page($_POST, $default_template, isset($_POST['overwrite']));
+      if (isset($_POST['allow_comments'])) {
+        $template = $default_template_with_comments;
+      }
+      else {
+        $template = $default_template;
+      }
+      $error_code = $s->add_new_page(
+        $_POST,
+        $template, 
+        isset($_POST['overwrite'])
+      );
       if ($error_code===1) {
         $message = 'Page with same name already exists.';
       }
@@ -368,7 +578,27 @@ if ($current_file === $this_file) {
       else {
         $message = 'Page created.';
       }
-      echo $m->render($admin_template, array('message' => $message));
+      $page = $s->get_page(urlencode($_POST['url']).Spage::DATA_EXT);
+      $page['message'] = $message;
+      echo $m->render($admin_continue_template, $page);
+      break;
+    case 'save_page':
+      if (isset($_POST['allow_comments'])) {
+        $template = $default_template_with_comments;
+      }
+      else {
+        $template = $default_template;
+      }
+      $error_code = $s->edit_page($_POST, $template);
+      if ($error_code != 0) {
+        $message = 'Something went wrong while saving the page.';
+      }
+      else {
+        $message = 'Page saved.';
+      }
+      $page = $s->get_page(urlencode($_POST['url']).Spage::DATA_EXT);
+      $page['message'] = $message;
+      echo $m->render($admin_continue_template, $page);
       break;
     case 'edit_front_page':
       $data = $s->get_page('index'.Spage::DATA_EXT);
@@ -376,10 +606,13 @@ if ($current_file === $this_file) {
       break;
     case 'create_front_page':
       $s->create_front_page($_POST, $front_page_template);
-      echo $m->render($admin_template, array('message' => 'Front page created.'));
+      echo $m->render(
+        $admin_template,
+        array('message' => 'Front page created.')
+      );
       break;
     case 'rebuild_pages':
-      $s->rebuild_pages($default_template);
+      $s->rebuild_pages($default_template, $default_template_with_comments);
       echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
       break;
     case 'list_pages':
@@ -393,6 +626,25 @@ if ($current_file === $this_file) {
     case 'delete_page':
       $s->delete_page(urlencode($_GET['page']).Spage::DATA_EXT);
       echo $m->render($admin_template, array('message' => 'Page deleted.'));
+      break;
+    case 'list_comments':
+      $comments = $s->list_all_comments(TRUE, 50);
+      $comments['message'] = '<p>
+        Only 50 latest comments are shown.
+        <a href="spage.php?operation=list_all_comments">List all comments</a>.
+        </p>';
+      echo $m->render($admin_list_comments_template, $comments);
+      break;
+    case 'list_all_comments':
+      $comments = $s->list_all_comments();
+      echo $m->render($admin_list_comments_template, $comments);
+      break;
+    case 'delete_comments':
+      $comments = $_POST;
+      unset($comments['operation']);
+      $comments = array_keys($comments);
+      $s->delete_comments($comments);
+      echo $m->render($admin_template, array('message' => 'Comments deleted.'));
       break;
     default:
       echo $m->render($admin_template, array());
