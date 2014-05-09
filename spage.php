@@ -95,6 +95,16 @@ class Spage {
           $GLOBALS['m']->render($template, $data)
         );
       }
+      // When moving page from non-draft to draft, delete the *.html
+      else if (
+        isset($data['draft']) &&
+        file_exists($data['url'].self::PAGE_EXT)
+      ) {
+        rename(
+          dirname(__FILE__).DIRECTORY_SEPARATOR.$data['url'].self::PAGE_EXT,
+          dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$data['url'].self::PAGE_EXT
+        );
+      }
 
       if ($error_code !== 0 || $error_code_2 !== 0) {
         return 2;
