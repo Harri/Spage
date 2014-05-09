@@ -224,7 +224,7 @@ class Spage {
   * @return array
   */
   public function get_page($page) {
-    $page_name = mb_substr($page_name, 0, 200);
+    $page = mb_substr($page, 0, 200);
     if (!$this->starts_with($page, '/') &&
       !$this->starts_with($page, '\\') &&
       $this->ends_with($page, self::DATA_EXT) && is_file($page)) {
