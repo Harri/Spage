@@ -106,3 +106,12 @@ pre {
 #previewPane {
   overflow: auto;
   }
+
+#admin .comment {
+  border: 1px dashed #333;
+  margin: 0.5em;
+  padding: 0.5em;
+}
+#admin input[readonly="readonly"] {
+  background-color: #ccc;
+}
