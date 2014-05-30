@@ -10,14 +10,15 @@
  * @link https://github.com/Harri/Spage
  */
 
-require 'lib/markdown.php';
+require 'lib/parsedown.php';
 require 'lib/mustache.php';
 require 'templates.php';
 require 'admin_templates.php';
 
 date_default_timezone_set('Europe/Helsinki');
 
-$m = new Mustache;
+$m = new Mustache_Engine;
+$p = new Parsedown;
 
 class Spage {
 
@@ -30,7 +31,7 @@ class Spage {
   /**
   * Adds new page and updates RSS feed.
   * Does not overwrite existing files, unless told so.
-  * 
+  *
   * Each page has the following data
   *   url - it's the same as file name, excluding file extension
   *   title - title for the page
@@ -39,7 +40,7 @@ class Spage {
   *   date - date of creation YYYY-MM-DD
   *   time - time of creation HH:MM
   *   timestamp - same as date and time, but in UNIX time
-  * 
+  *
   * Edited pages have also the following data
   *   overwrite - always TRUE
   *   date_edited - date when edited
@@ -62,7 +63,7 @@ class Spage {
     $data['url'] = mb_substr($data['url'], 0, 200);
     $data['url'] = urlencode($data['url']);
     $data['title'] = htmlspecialchars($data['title']);
-    $data['content_html'] = Markdown($data['content']);
+    $data['content_html'] = $GLOBALS['p']->text($data['content']);
 
     if ($overwrite) {
       $data['date'] = htmlspecialchars($data['date']);
@@ -110,7 +111,8 @@ class Spage {
         return 2;
       }
       $this->create_rss_feed($GLOBALS['rss_template']);
-      return 0;     
+      $this->create_sitemap($GLOBALS['sitemap_template']);
+      return 0;
     }
   }
 
@@ -164,7 +166,7 @@ class Spage {
     $page_list = array_reverse($page_list);
 
     $data['page_list'] = $page_list;
-    $data['content_html'] = Markdown($data['front_page_content']);
+    $data['content_html'] = $GLOBALS['p']->text($data['front_page_content']);
 
     $orig_content = $this->get_page('index.spage');
     if (isset($orig_content['date'])) {
@@ -183,7 +185,7 @@ class Spage {
     $data['timestamp_edited'] = time();
 
     array_splice($page_list, self::FRONT_ITEMS);
-    $data['few_latests'] = $page_list;  
+    $data['few_latests'] = $page_list;
 
     $bytes_written = $this->write_to_file(
       'index'.self::PAGE_EXT,
@@ -242,7 +244,7 @@ class Spage {
       if (isset($data['draft']) && $data['draft'] === 'draft') {
         $data['draft_checked'] = 'checked';
       }
-      
+
       if (isset($data['unlisted']) && $data['unlisted'] === 'unlisted') {
         $data['unlisted_checked'] = 'checked';
       }
@@ -290,7 +292,6 @@ class Spage {
   *
   * @access public
   * @param string $template
-  * @param int $number_of_items (default: 5)
   * @return int
   */
   public function create_rss_feed($template) {
@@ -303,6 +304,30 @@ class Spage {
 
     $bytes_written = $this->write_to_file(
       'rss.xml', $GLOBALS['m']->render($template, $data)
+    );
+    if (!$bytes_written) {
+      return 1;
+    }
+    else {
+      return 0;
+    }
+  }
+
+  /**
+  * Creates (and updates) sitemap file.
+  *
+  * @access public
+  * @param string $template
+  * @return int
+  */
+  public function create_sitemap($template) {
+    $page_list = $this->list_all_pages();
+    $page_list = $page_list['pages'];
+    $page_list = $this->aasort($page_list, 'timestamp');
+    $data = array('pages' => $page_list);
+
+    $bytes_written = $this->write_to_file(
+      'sitemap.txt', $GLOBALS['m']->render($template, $data)
     );
     if (!$bytes_written) {
       return 1;
@@ -416,7 +441,7 @@ class Spage {
         break;
       }
       // Loop through all comments in current page
-      $comments_count = count($page_content['comments']); 
+      $comments_count = count($page_content['comments']);
       for ($i = 0; $i <= $comments_count; $i++) {
         // If current comment UUID is marked for deletion > unset
         if (in_array($page_content['comments'][$i]['uuid'], $bad_comments)) {
@@ -493,11 +518,11 @@ class Spage {
     }
 
     asort($sorter);
-    
+
     foreach ($sorter as $key => $va) {
       $sorted[$key] = $array[$key];
     }
-    
+
     return $sorted;
   }
 
@@ -576,7 +601,7 @@ if ($current_file === $this_file) {
       }
       $error_code = $s->add_new_page(
         $_POST,
-        $template, 
+        $template,
         isset($_POST['overwrite'])
       );
       if ($error_code===1) {

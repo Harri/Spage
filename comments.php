@@ -81,7 +81,7 @@ function comment($page_name, $author, $comment) {
       $page
     )
   );
-  
+
   header('Location: '.$page_name);
   die();
 }
@@ -122,7 +122,7 @@ if (
   !isset($_POST['message'])
 ) {
   header("HTTP/1.0 404 Not Found");
-  die();  
+  die();
 }
 else {
   comment($_POST['page'], $_POST['author'], $_POST['message']);

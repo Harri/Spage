@@ -6,7 +6,7 @@ Simple flat file CMS written in PHP. Each page gets its own `*.html` file which 
   * Live preview is shown while creating and editing pages using Showdown.js
 * Save pages as drafts or unlisted
 * Templates are done using Mustache.php
-* RSS
+* RSS and Sitemap
 * Search
 * Comments
   * Moderation for admins
@@ -27,4 +27,4 @@ Also, taking backups of your whole site is so much easier with plain files. So i
 
 Licensing
 -
-Spage is distributed under MIT license. Showdown, Mustache and Markdown have their own licenses (can be found in those files).
+Spage is distributed under MIT license. Showdown, Mustache and Parsedown have their own licenses (can be found in those files).

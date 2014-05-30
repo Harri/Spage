@@ -35,7 +35,7 @@ function search($terms) {
 * Analyzes page relevancy against search terms.
 * Every title and url hit +10 points.
 * Every content hit +1 point.
-* 
+*
 * Returns page with relevancy points.
 *
 * @param array $page
@@ -58,12 +58,12 @@ function analyze_page($page, $terms) {
   foreach ($terms as $term_key => $term_value) {
     // Check if search term is in title or url
     $occurrences = mb_strstr($page['title'], $term_value);
-    if ($occurrences) {
+    if (!empty($occurrences)) {
       $orig_page['relevance'] = $orig_page['relevance'] + 10;
     }
     // Check if search term is in content
     $occurrences = mb_substr_count($page['content'], $term_value);
-    if ($occurrences > 0) {
+    if (!empty($occurrences)) {
       $orig_page['relevance'] = $orig_page['relevance'] + $occurrences;
     }
   }
@@ -73,7 +73,9 @@ function analyze_page($page, $terms) {
 
 if (isset($_GET['terms'])) {
   $orig_terms = $_GET['terms'];
-  $dropped_terms = array();
+  $terms = array(); // the actual search terms
+  $sliced_terms = array(); // valid terms, but not used since there were so many
+  $dropped_terms = array(); // invalid terms (too short)
 
   $terms = explode(' ', $orig_terms);
 

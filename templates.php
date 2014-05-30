@@ -13,7 +13,7 @@ $default_template = '<!doctype html>
 			<legend>Search</legend>
 			<label for="terms">Search terms</label>
 			<input name="terms" id="terms" required="required">
- 			<button type="submit">Search</button>
+			<button type="submit">Search</button>
 		</fieldset>
 	</form>
 	<header>
@@ -39,7 +39,7 @@ $default_template_with_comments = '<!doctype html>
 			<legend>Search</legend>
 			<label for="terms">Search terms</label>
 			<input name="terms" id="terms" required="required">
- 			<button type="submit">Search</button>
+			<button type="submit">Search</button>
 		</fieldset>
 	</form>
 	<header>
@@ -63,8 +63,8 @@ $default_template_with_comments = '<!doctype html>
 			<input maxlength="200" name="author" id="author" required="required">
 			<label for="message">Message: </label>
 			<textarea maxlength="10000" id="message" name="message" rows="20" required="required"></textarea>
-	 		<input type="hidden" name="page" value="{{url}}">
-	 		<button type="submit">Comment</button>
+			<input type="hidden" name="page" value="{{url}}">
+			<button type="submit">Comment</button>
 		</fieldset>
 	</form>
 
@@ -179,3 +179,7 @@ $rss_template = '<?xml version="1.0" encoding="utf-8"?>
 		{{/pages}}
 	</channel>
 </rss>';
+
+$sitemap_template = 'http://spage.example
+{{#pages}}http://spage.example/{{url}}
+{{/pages}}';
