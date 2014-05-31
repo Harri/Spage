@@ -56,9 +56,10 @@ class Spage {
   * @param array $data
   * @param string $template
   * @param bool $overwrite (default: FALSE)
+  * @param bool $update_feed (default: TRUE)
   * @return int
   */
-  public function add_new_page($data, $template, $overwrite=FALSE) {
+  public function add_new_page($data, $template, $overwrite=FALSE, $update_feed=TRUE) {
     $data['url'] = mb_substr($data['url'], 0, 200);
     $data['url'] = urlencode($data['url']);
     $data['title'] = htmlspecialchars($data['title']);
@@ -109,8 +110,12 @@ class Spage {
       if ($error_code !== 0 || $error_code_2 !== 0) {
         return 2;
       }
-      $this->create_rss_feed($GLOBALS['rss_template']);
-      $this->create_sitemap($GLOBALS['sitemap_template']);
+
+      if ($update_feed) {
+        $this->create_rss_feed($GLOBALS['rss_template']);
+        $this->create_sitemap($GLOBALS['sitemap_template']);
+      }
+      
       return 0;
     }
   }
@@ -221,9 +226,11 @@ class Spage {
         ) {
           $template = $template_with_comments;
         }
-        $this->add_new_page($content, $template, TRUE);
+        $this->add_new_page($content, $template, TRUE, FALSE);
       }
     }
+    $this->create_rss_feed($GLOBALS['rss_template']);
+    $this->create_sitemap($GLOBALS['sitemap_template']);
   }
 
   /**
@@ -323,6 +330,7 @@ class Spage {
     $page_list = $this->list_all_pages();
     $page_list = $page_list['pages'];
     $page_list = $this->aasort($page_list, 'timestamp');
+    $page_list = array_reverse($page_list);
     $data = array('pages' => $page_list);
 
     $bytes_written = $this->write_to_file(
