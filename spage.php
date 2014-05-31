@@ -10,7 +10,7 @@
  * @link https://github.com/Harri/Spage
  */
 
-require 'lib/parsedown.php';
+require 'lib/markdown.php';
 require 'lib/mustache.php';
 require 'templates.php';
 require 'admin_templates.php';
@@ -18,7 +18,6 @@ require 'admin_templates.php';
 date_default_timezone_set('Europe/Helsinki');
 
 $m = new Mustache_Engine;
-$p = new Parsedown;
 
 class Spage {
 
@@ -63,7 +62,7 @@ class Spage {
     $data['url'] = mb_substr($data['url'], 0, 200);
     $data['url'] = urlencode($data['url']);
     $data['title'] = htmlspecialchars($data['title']);
-    $data['content_html'] = $GLOBALS['p']->text($data['content']);
+    $data['content_html'] = Markdown::defaultTransform($data['content']);
 
     if ($overwrite) {
       $data['date'] = htmlspecialchars($data['date']);
@@ -166,7 +165,7 @@ class Spage {
     $page_list = array_reverse($page_list);
 
     $data['page_list'] = $page_list;
-    $data['content_html'] = $GLOBALS['p']->text($data['front_page_content']);
+    $data['content_html'] = Markdown::defaultTransform($data['front_page_content']);
 
     $orig_content = $this->get_page('index.spage');
     if (isset($orig_content['date'])) {

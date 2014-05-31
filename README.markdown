@@ -27,4 +27,4 @@ Also, taking backups of your whole site is so much easier with plain files. So i
 
 Licensing
 -
-Spage is distributed under MIT license. Showdown, Mustache and Parsedown have their own licenses (can be found in those files).
+Spage is distributed under MIT license. Showdown, Mustache and Markdown have their own licenses (can be found in those files).
