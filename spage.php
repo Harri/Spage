@@ -288,6 +288,7 @@ class Spage {
         dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page
       );
       $this->create_rss_feed($GLOBALS['rss_template']);
+      $this->create_sitemap($GLOBALS['sitemap_template']);
     }
   }
 
