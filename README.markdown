@@ -4,12 +4,13 @@ Simple flat file CMS written in PHP. Each page gets its own `*.html` file which 
 
 * Create and edit pages using Markdown
   * Live preview is shown while creating and editing pages using Showdown.js
-* Save pages as drafts or unlisted
+* Save pages as public, unlisted or draft
 * Templates are done using Mustache.php
 * RSS and Sitemap
 * Search
 * Comments
   * Moderation for admins
+  * Enable/disable per page
 
 Configuration and usage
 -
