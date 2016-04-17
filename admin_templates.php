@@ -23,19 +23,18 @@ $admin_template = '<!doctype html>
 	<form action="spage.php" method="post">
 		<fieldset>
 			<legend>Add new page</legend>
-			<label for="url">Filename for the page</label>
-			<input name="url" id="url" required="required" maxlength="200">
+			<input name="url" id="url" value="{{url}}" required="required">
 			<label for="title">Title for the page</label>
-			<input name="title" id="title" required="required">
+			<input name="title" id="title" value="{{title}}" required="required">
 			<input name="operation" id="operation" value="create_page" type="hidden">
 			<label for="inputPane">Content</label>
-			<textarea id="inputPane" name="content" rows="20" required="required" class="pane"></textarea>
+			<textarea id="inputPane" name="content" rows="20" required="required" class="pane">{{content}}</textarea>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
 			<input type="checkbox" id="draft" name="draft" value="draft"><label for="draft">Save as draft</label>
 			<input type="checkbox" id="unlisted" name="unlisted" value="unlisted"><label for="unlisted">Save as unlisted</label>
-			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments"><label for="allow_comments">Allow comments</label>	
+			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments"><label for="allow_comments">Allow comments</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">
@@ -89,6 +88,7 @@ $admin_list_comments_template = '<!doctype html>
 			<input name="operation" id="operation" value="delete_comments" type="hidden">
 			{{#comments}}
 			<div class="comment">
+				<p>Page: <a href="{{url}}" target="_blank">{{url}}</a></p>
 				<input type="checkbox" id="{{uuid}}" name="{{uuid}}" value="delete">
 				<label for="{{uuid}}">{{{comment}}}, {{{author}}}, {{uuid}}</label>
 			</div>
@@ -143,7 +143,7 @@ $admin_edit_template = '<!doctype html>
 			<button type="submit">Submit</button>
 			<input type="checkbox" id="draft" name="draft" value="draft" {{draft_checked}}><label for="draft">Save as draft</label>
 			<input type="checkbox" id="unlisted" name="unlisted" value="unlisted" {{unlisted_checked}}><label for="unlisted">Save as unlisted</label>
-			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments" {{allow_comments_checked}}><label for="allow_comments">Allow comments</label>	
+			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments" {{allow_comments_checked}}><label for="allow_comments">Allow comments</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">
@@ -213,7 +213,7 @@ $admin_page_list_template = '<!doctype html>
 					{{/drafts}}
 					</optgroup>
 				{{/all_pages}}
-			</select> 
+			</select>
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
@@ -299,7 +299,7 @@ $admin_continue_template = '<!doctype html>
 			<button type="submit">Submit</button>
 			<input type="checkbox" id="draft" name="draft" value="draft" {{draft_checked}}><label for="draft">Save as draft</label>
 			<input type="checkbox" id="unlisted" name="unlisted" value="unlisted" {{unlisted_checked}}><label for="unlisted">Save as unlisted</label>
-			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments" {{allow_comments_checked}}><label for="allow_comments">Allow comments</label>	
+			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments" {{allow_comments_checked}}><label for="allow_comments">Allow comments</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">

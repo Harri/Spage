@@ -1,4 +1,6 @@
 <?php
+mb_internal_encoding("UTF-8");
+mb_http_output("UTF-8");
 
 /**
  * Simple static file page creation system
@@ -22,45 +24,51 @@ $m = new Mustache_Engine;
 class Spage {
 
   const TRASH_DIR = 'trash';
-  const RSS_ITEMS = 5;
+  const FEED_ITEMS = 5;
   const FRONT_ITEMS = 5;
   const DATA_EXT = '.spage';
   const PAGE_EXT = '.html';
+  const MAX_FILE_NAME_LENGTH = 200;
+  const MAX_COMMENTS_SHOWN = 50;
+  const OK = 0;
+  const ERR = 1;
+  const FEED_FILE = 'rss.xml';
+  const MAX_PAGE_SIZE_BYTES = 5242880;
 
   /**
-  * Adds new page and updates RSS feed.
-  * Does not overwrite existing files, unless told so.
-  *
-  * Each page has the following data
-  *   url - it's the same as file name, excluding file extension
-  *   title - title for the page
-  *   content - exactly the content that was written
-  *   content_html - same as content, but went through Markdown
-  *   date - date of creation YYYY-MM-DD
-  *   time - time of creation HH:MM
-  *   timestamp - same as date and time, but in UNIX time
-  *
-  * Edited pages have also the following data
-  *   overwrite - always TRUE
-  *   date_edited - date when edited
-  *   time_edited - time when edited
-  *   timestamp_edited - same as date and time, but in UNIX time
-  *
-  * Each page might have any of the following data
-  *    allow_comments - If set, uses template with comments and comment form
-  *    draft - If set, no *.html file is created
-  *    unlisted - If set, the page is not shown in RSS, page list or search
-  *
-  *
-  * @access public
-  * @param array $data
-  * @param string $template
-  * @param bool $overwrite (default: FALSE)
-  * @param bool $update_feed (default: TRUE)
-  * @return int
-  */
-  public function add_new_page($data, $template, $overwrite=FALSE, $update_feed=TRUE) {
-    $data['url'] = mb_substr($data['url'], 0, 200);
+   * Adds new page and updates RSS feed, sitemap and front page.
+   * Does not overwrite existing files, unless told so.
+   *
+   * Each page has the following data
+   *   url - it's the same as file name, excluding file extension
+   *   title - title for the page
+   *   content - exactly the content that was written
+   *   content_html - same as content, but went through Markdown
+   *   date - date of creation YYYY-MM-DD
+   *   time - time of creation HH:MM
+   *   timestamp - same as date and time, but in UNIX time
+   *
+   * Edited pages have also the following data
+   *   overwrite - always TRUE
+   *   date_edited - date when edited
+   *   time_edited - time when edited
+   *   timestamp_edited - same as date and time, but in UNIX time
+   *
+   * Each page might have any of the following data
+   *    allow_comments - If set, uses template with comments and comment form
+   *    draft - If set, no *.html file is created
+   *    unlisted - If set, the page is not shown in RSS, page list or search
+   *
+   *
+   * @access public
+   * @param array $data
+   * @param string $template
+   * @param bool $overwrite (default: FALSE)
+   * @param bool $update_feed (default: TRUE)
+   * @return int
+   */
+  public function add_new_page($data, $template, $overwrite = FALSE, $update_feed = TRUE) {
+    $data['url'] = mb_substr($data['url'], 0, self::MAX_FILE_NAME_LENGTH);
     $data['url'] = urlencode($data['url']);
     $data['title'] = htmlspecialchars($data['title']);
     $data['content_html'] = Markdown::defaultTransform($data['content']);
@@ -72,64 +80,75 @@ class Spage {
       $data['date_edited'] = date('Y-m-d');
       $data['time_edited'] = date('H:i');
       $data['timestamp_edited'] = time();
-    }
-    else {
+    } else {
       $data['date'] = date('Y-m-d');
       $data['time'] = date('H:i');
       $data['timestamp'] = time();
     }
 
     // only edits can overwrite
-    if (file_exists($data['url'].self::PAGE_EXT) && $overwrite!==TRUE) {
-      return 1;
-    }
-    else {
-      $error_code = $this->write_to_file(
-        $data['url'].self::DATA_EXT,
+    if (file_exists($data['url'] . self::PAGE_EXT) && $overwrite !== TRUE) {
+      return self::ERR;
+    } else {
+      $data_file_added = $this->write_to_file(
+        $data['url'] . self::DATA_EXT,
         serialize($data)
       );
-      $error_code_2 = 0;
       // drafts don't get .html page
       if (!isset($data['draft'])) {
-        $error_code_2 = $this->write_to_file(
-          $data['url'].self::PAGE_EXT,
+        $page_file_added = $this->write_to_file(
+          $data['url'] . self::PAGE_EXT,
           $GLOBALS['m']->render($template, $data)
         );
       }
       // When moving page from non-draft to draft, delete the *.html
       else if (
         isset($data['draft']) &&
-        file_exists($data['url'].self::PAGE_EXT)
+        file_exists($data['url'] . self::PAGE_EXT)
       ) {
         rename(
-          dirname(__FILE__).DIRECTORY_SEPARATOR.$data['url'].self::PAGE_EXT,
-          dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$data['url'].self::PAGE_EXT
+          dirname(__FILE__) . DIRECTORY_SEPARATOR . $data['url'] . self::PAGE_EXT,
+          dirname(__FILE__) . DIRECTORY_SEPARATOR . self::TRASH_DIR . DIRECTORY_SEPARATOR . $data['url'] . self::PAGE_EXT
         );
       }
 
-      if ($error_code !== 0 || $error_code_2 !== 0) {
-        return 2;
+      if ($data_file_added !== self::OK || $page_file_added !== self::OK) {
+        return self::ERR;
       }
 
       if ($update_feed) {
         $this->create_rss_feed($GLOBALS['rss_template']);
         $this->create_sitemap($GLOBALS['sitemap_template']);
+        $this->refresh_front_page($GLOBALS['front_page_template']);
       }
-      
-      return 0;
+
+      return self::OK;
     }
   }
 
   /**
-  * Saves edited page. Merges new data to old data.
-  *
-  * @access public
-  * @param array $data
-  * @param string $template
-  * @return int
-  */
+   * Refreshes front page. If there is no front page, it will NOT be created.
+   *
+   * @access public
+   * @param string $template
+   */
+  public function refresh_front_page($template) {
+    $current_front = $this->get_page('index' . self::DATA_EXT);
+    if ($current_front && $current_front != array()) {
+      $this->create_front_page($current_front, $template);
+    }
+  }
+
+  /**
+   * Saves edited page. Merges new data to old data.
+   *
+   * @access public
+   * @param array $data
+   * @param string $template
+   * @return int
+   */
   public function edit_page($data, $template) {
-    $orig_page = $this->get_page($data['url'].self::DATA_EXT);
+    $orig_page = $this->get_page($data['url'] . self::DATA_EXT);
     $new_page = array_merge($orig_page, $data);
 
     if (!isset($data['unlisted'])) {
@@ -152,16 +171,16 @@ class Spage {
   }
 
   /**
-  * Creates or updates front page
-  *
-  * Front page consists of list of all pages sorted by timestamp and
-  * content written by admin.
-  *
-  * @access public
-  * @param array $data
-  * @param string $template
-  * @return int
-  */
+   * Creates or updates front page
+   *
+   * Front page consists of list of all pages sorted by timestamp and
+   * content written by admin.
+   *
+   * @access public
+   * @param array $data
+   * @param string $template
+   * @return int
+   */
   public function create_front_page($data, $template) {
     $page_list = $this->list_all_pages();
     $page_list = $page_list['pages'];
@@ -172,13 +191,12 @@ class Spage {
     $data['page_list'] = $page_list;
     $data['content_html'] = Markdown::defaultTransform($data['front_page_content']);
 
-    $orig_content = $this->get_page('index.spage');
+    $orig_content = $this->get_page('index' . self::DATA_EXT);
     if (isset($orig_content['date'])) {
       $data['date'] = $orig_content['date'];
       $data['time'] = $orig_content['time'];
       $data['timestamp'] = $orig_content['timestamp'];
-    }
-    else {
+    } else {
       $data['date'] = date('Y-m-d');
       $data['time'] = date('H:i');
       $data['timestamp'] = time();
@@ -192,29 +210,28 @@ class Spage {
     $data['few_latests'] = $page_list;
 
     $bytes_written = $this->write_to_file(
-      'index'.self::PAGE_EXT,
+      'index' . self::PAGE_EXT,
       $GLOBALS['m']->render($template, $data)
     );
     $bytes_written_2 = $this->write_to_file(
-      'index'.self::DATA_EXT,
+      'index' . self::DATA_EXT,
       serialize($data)
     );
     if (!$bytes_written || !$bytes_written_2) {
-      return 1;
-    }
-    else {
-      return 0;
+      return self::ERR;
+    } else {
+      return self::OK;
     }
   }
 
   /**
-  * Rebuilds all pages in current directory to match new template.
-  *
-  * @access public
-  * @param string $template
-  * @param string $template_with_comments
-  * @return void
-  */
+   * Rebuilds all pages in current directory to match new template.
+   *
+   * @access public
+   * @param string $template
+   * @param string $template_with_comments
+   * @return void
+   */
   public function rebuild_pages($template, $template_with_comments) {
     $page_list = $this->list_all_pages();
     foreach ($page_list as $type => $item) {
@@ -226,23 +243,24 @@ class Spage {
         ) {
           $template = $template_with_comments;
         }
-        $this->add_new_page($content, $template, TRUE, FALSE);
+        $this->add_new_page($content, $template, TRUE);
       }
     }
     $this->create_rss_feed($GLOBALS['rss_template']);
     $this->create_sitemap($GLOBALS['sitemap_template']);
+    $this->refresh_front_page($GLOBALS['front_page_template']);
   }
 
   /**
-  * Gets given page. Requested page name must not contain '/' or '\'
-  * and it must end with '.spage'
-  *
-  * @access public
-  * @param string $page
-  * @return array
-  */
+   * Gets given page. Requested page name must not contain '/' or '\'
+   * and it must end with '.spage'
+   *
+   * @access public
+   * @param string $page
+   * @return array
+   */
   public function get_page($page) {
-    $page = mb_substr($page, 0, 200);
+    $page = mb_substr($page, 0, self::MAX_FILE_NAME_LENGTH);
     if (!$this->starts_with($page, '/') &&
       !$this->starts_with($page, '\\') &&
       $this->ends_with($page, self::DATA_EXT) && is_file($page)) {
@@ -266,26 +284,25 @@ class Spage {
     return array();
   }
 
-
   /**
-  * Moves page (*.html and *.spage) to trash directory.
-  *
-  * @access public
-  * @param string $page
-  * @return void
-  */
+   * Moves page (*.html and *.spage) to trash directory.
+   *
+   * @access public
+   * @param string $page
+   * @return void
+   */
   public function delete_page($page) {
     if (!$this->starts_with($page, '/') &&
       !$this->starts_with($page, '\\') &&
       $this->ends_with($page, self::DATA_EXT) && is_file($page)) {
       rename(
-        dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
-        dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page
+        dirname(__FILE__) . DIRECTORY_SEPARATOR . $page,
+        dirname(__FILE__) . DIRECTORY_SEPARATOR . self::TRASH_DIR . DIRECTORY_SEPARATOR . $page
       );
       $page = str_replace(self::DATA_EXT, self::PAGE_EXT, $page);
       rename(
-        dirname(__FILE__).DIRECTORY_SEPARATOR.$page,
-        dirname(__FILE__).DIRECTORY_SEPARATOR.self::TRASH_DIR.DIRECTORY_SEPARATOR.$page
+        dirname(__FILE__) . DIRECTORY_SEPARATOR . $page,
+        dirname(__FILE__) . DIRECTORY_SEPARATOR . self::TRASH_DIR . DIRECTORY_SEPARATOR . $page
       );
       $this->create_rss_feed($GLOBALS['rss_template']);
       $this->create_sitemap($GLOBALS['sitemap_template']);
@@ -293,40 +310,43 @@ class Spage {
   }
 
   /**
-  * Creates (and updates) RSS page.
-  *
-  * By default will list five newest pages sorted by timestamp.
-  *
-  * @access public
-  * @param string $template
-  * @return int
-  */
+   * Creates (and updates) RSS page.
+   *
+   * By default will list five newest pages sorted by timestamp.
+   *
+   * @access public
+   * @param string $template
+   * @return int
+   */
   public function create_rss_feed($template) {
     $page_list = $this->list_all_pages();
     $page_list = $page_list['pages'];
     $page_list = $this->aasort($page_list, 'timestamp');
     $page_list = array_reverse($page_list);
-    array_splice($page_list, self::RSS_ITEMS);
+    array_splice($page_list, self::FEED_ITEMS);
+    foreach ($page_list as $index => $page) {
+      $page_list[$index]['pub_date'] = date('r', $page['timestamp']);
+    }
     $data = array('pages' => $page_list);
 
     $bytes_written = $this->write_to_file(
-      'rss.xml', $GLOBALS['m']->render($template, $data)
+      self::FEED_FILE,
+      $GLOBALS['m']->render($template, $data)
     );
     if (!$bytes_written) {
-      return 1;
-    }
-    else {
-      return 0;
+      return self::ERR;
+    } else {
+      return self::OK;
     }
   }
 
   /**
-  * Creates (and updates) sitemap file.
-  *
-  * @access public
-  * @param string $template
-  * @return int
-  */
+   * Creates (and updates) sitemap file.
+   *
+   * @access public
+   * @param string $template
+   * @return int
+   */
   public function create_sitemap($template) {
     $page_list = $this->list_all_pages();
     $page_list = $page_list['pages'];
@@ -338,20 +358,19 @@ class Spage {
       'sitemap.txt', $GLOBALS['m']->render($template, $data)
     );
     if (!$bytes_written) {
-      return 1;
-    }
-    else {
-      return 0;
+      return self::ERR;
+    } else {
+      return self::OK;
     }
   }
 
   /**
-  * Gets all pages and drafts
-  *
-  *
-  * @access public
-  * @return array
-  */
+   * Gets all pages and drafts
+   *
+   *
+   * @access public
+   * @return array
+   */
   public function list_all_pages() {
     $dir = scandir('.');
     $pages = array();
@@ -361,19 +380,17 @@ class Spage {
     foreach ($dir as $name) {
       if (
         $this->ends_with($name, self::DATA_EXT) &&
-        $name !== 'index'.self::DATA_EXT
+        $name !== 'index' . self::DATA_EXT
       ) {
         $content = $this->read_from_file($name);
         if (isset($content['draft']) && $content['draft'] === 'draft') {
           $drafts[] = $content;
-        }
-        else if (
+        } else if (
           isset($content['unlisted']) &&
           $content['unlisted'] === 'unlisted'
         ) {
           $unlisted[] = $content;
-        }
-        else {
+        } else {
           $pages[] = $content;
         }
       }
@@ -381,19 +398,18 @@ class Spage {
     return array(
       'pages' => $pages,
       'unlisted' => $unlisted,
-      'drafts' => $drafts
+      'drafts' => $drafts,
     );
   }
 
-
   /**
-  * Lists all comments from all pages.
-  *
-  * @access public
-  * @param bool $limit
-  * @param int $amount
-  * @return array
-  */
+   * Lists all comments from all pages.
+   *
+   * @access public
+   * @param bool $limit
+   * @param int $amount
+   * @return array
+   */
   public function list_all_comments($limit = FALSE, $amount = 0) {
     $all_pages = $this->list_all_pages();
     $comments = array();
@@ -409,7 +425,8 @@ class Spage {
               'author' => $c['author'],
               'comment' => $c['comment'],
               'timestamp' => $c['timestamp'],
-              'uuid' => $c['uuid']
+              'uuid' => $c['uuid'],
+              'url' => $page['url'],
             );
           }
         }
@@ -427,16 +444,17 @@ class Spage {
   }
 
   /**
-  * Deletes given comments
-  *
-  * @access public
-  * @param array $bad_comments
-  * @return void
-  */
+   * Deletes given comments
+   *
+   * @access public
+   * @param array $bad_comments
+   * @return void
+   */
   public function delete_comments($bad_comments) {
     $affected_pages = array();
     // Get list of affected pages
     foreach ($bad_comments as $comment) {
+      // $comment is pagename_commentid
       $comment = explode('_', $comment);
       $affected_pages[] = $comment[0];
     }
@@ -444,13 +462,13 @@ class Spage {
 
     // Open each affected page
     foreach ($affected_pages as $page) {
-      $page_content = $this->get_page($page.self::DATA_EXT);
+      $page_content = $this->get_page($page . self::DATA_EXT);
       if (empty($page_content)) {
         break;
       }
       // Loop through all comments in current page
       $comments_count = count($page_content['comments']);
-      for ($i = 0; $i <= $comments_count; $i++) {
+      for ($i = 0; $i < $comments_count; $i++) {
         // If current comment UUID is marked for deletion > unset
         if (in_array($page_content['comments'][$i]['uuid'], $bad_comments)) {
           unset($page_content['comments'][$i]);
@@ -460,62 +478,63 @@ class Spage {
       $comments = array_values($page_content['comments']);
       if (!empty($comments)) {
         $page_content['comments'] = $comments;
-      }
-      else {
+      } else {
         unset($page_content['comments']);
       }
 
       $this->write_to_file(
-        $page_content['url'].Spage::DATA_EXT,
+        $page_content['url'] . Spage::DATA_EXT,
         serialize($page_content)
       );
-      $this->write_to_file(
-        $page_content['url'].Spage::PAGE_EXT,
-        $GLOBALS['m']->render(
-          $GLOBALS['default_template_with_comments'],
-          $page_content
-        )
-      );
+      // Drafts can not have PAGE_EXT files
+      if (!isset($page_content['draft'])) {
+        $this->write_to_file(
+          $page_content['url'] . Spage::PAGE_EXT,
+          $GLOBALS['m']->render(
+            $GLOBALS['default_template_with_comments'],
+            $page_content
+          )
+        );
+      }
     }
   }
 
   /**
-  * Helper function to verify if string ends with given substring
-  *
-  * @access public
-  * @param string $haystack
-  * @param string $needle
-  * @return string
-  */
+   * Helper function to verify if string ends with given substring
+   *
+   * @access public
+   * @param string $haystack
+   * @param string $needle
+   * @return string
+   */
   public function ends_with($haystack, $needle) {
     $length = mb_strlen($needle);
-    $start  = $length * -1;
+    $start = $length * -1;
     return (mb_substr($haystack, $start) === $needle);
   }
 
   /**
-  * Helper function to verify if string starts with given substring
-  *
-  * @access public
-  * @param string $haystack
-  * @param string $needle
-  * @return string
-  */
+   * Helper function to verify if string starts with given substring
+   *
+   * @access public
+   * @param string $haystack
+   * @param string $needle
+   * @return string
+   */
   public function starts_with($haystack, $needle) {
     $length = mb_strlen($needle);
     return (mb_substr($haystack, 0, $length) === $needle);
   }
 
-
   /**
-  * Helper function to sort multidimensional array.
-  * Returns given array in sorted order
-  *
-  * @access public
-  * @param array &$array
-  * @param string $key
-  * @return array
-  */
+   * Helper function to sort multidimensional array.
+   * Returns given array in sorted order
+   *
+   * @access public
+   * @param array &$array
+   * @param string $key
+   * @return array
+   */
   public function aasort(&$array, $sort_key) {
     $sorter = array();
     $sorted = array();
@@ -534,38 +553,43 @@ class Spage {
     return $sorted;
   }
 
-
   /**
-  * Writes given file to disk with given content
-  *
-  * @access public
-  * @param string $name
-  * @param string $content
-  * @return int
-  */
+   * Writes given file to disk with given content
+   *
+   * @access public
+   * @param string $name
+   * @param string $content
+   * @return int
+   */
   public function write_to_file($name, $content) {
     $bytes_written = file_put_contents(
-      dirname(__FILE__).DIRECTORY_SEPARATOR.$name,
-      $content
+      dirname(__FILE__) . DIRECTORY_SEPARATOR . $name,
+      $content,
+      LOCK_EX
     );
     if (!$bytes_written) {
-      return 2;
-    }
-    else {
-      return 0;
+      return self::ERR;
+    } else {
+      return self::OK;
     }
   }
 
   /**
-  * Reads given file from disk
-  *
-  * @access private
-  * @param string $name
-  * @return void
-  */
+   * Reads given file from disk
+   *
+   * @access private
+   * @param string $name
+   * @return mixed
+   */
   private function read_from_file($name) {
-    $data = unserialize(file_get_contents(
-      dirname(__FILE__).DIRECTORY_SEPARATOR.$name)
+    $data = unserialize(
+      file_get_contents(
+        dirname(__FILE__) . DIRECTORY_SEPARATOR . $name,
+        FILE_USE_INCLUDE_PATH,
+        NULL,
+        0,
+        self::MAX_PAGE_SIZE_BYTES
+      )
     );
     return $data;
   }
@@ -594,104 +618,101 @@ if ($current_file === $this_file) {
   // 'operation' is set to empty (blocks CSRF vulnerability).
   if (!isset($_REQUEST['operation']) || !$s->starts_with(
     $http_referer_without_protocol,
-    $_SERVER['SERVER_NAME'].$_SERVER['PHP_SELF'])
+    $_SERVER['SERVER_NAME'] . $_SERVER['PHP_SELF'])
   ) {
     $_REQUEST['operation'] = '';
   }
 
   switch ($_REQUEST['operation']) {
-    case 'create_page':
-      if (isset($_POST['allow_comments'])) {
-        $template = $default_template_with_comments;
-      }
-      else {
-        $template = $default_template;
-      }
-      $error_code = $s->add_new_page(
-        $_POST,
-        $template,
-        isset($_POST['overwrite'])
-      );
-      if ($error_code===1) {
-        $message = 'Page with same name already exists.';
-      }
-      else if ($error_code===2) {
-        $message = 'Something went wrong while creating the page.';
-      }
-      else {
-        $message = 'Page created.';
-      }
-      $page = $s->get_page(urlencode($_POST['url']).Spage::DATA_EXT);
-      $page['message'] = $message;
-      echo $m->render($admin_continue_template, $page);
-      break;
-    case 'save_page':
-      if (isset($_POST['allow_comments'])) {
-        $template = $default_template_with_comments;
-      }
-      else {
-        $template = $default_template;
-      }
-      $error_code = $s->edit_page($_POST, $template);
-      if ($error_code != 0) {
-        $message = 'Something went wrong while saving the page.';
-      }
-      else {
-        $message = 'Page saved.';
-      }
-      $page = $s->get_page(urlencode($_POST['url']).Spage::DATA_EXT);
-      $page['message'] = $message;
-      echo $m->render($admin_continue_template, $page);
-      break;
-    case 'edit_front_page':
-      $data = $s->get_page('index'.Spage::DATA_EXT);
-      echo $m->render($admin_front_page_template, $data);
-      break;
-    case 'create_front_page':
-      $s->create_front_page($_POST, $front_page_template);
-      echo $m->render(
-        $admin_template,
-        array('message' => 'Front page created.')
-      );
-      break;
-    case 'rebuild_pages':
-      $s->rebuild_pages($default_template, $default_template_with_comments);
-      echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
-      break;
-    case 'list_pages':
-      $data['all_pages'] = $s->list_all_pages();
-      echo $m->render($admin_page_list_template, $data);
-      break;
-    case 'edit_page':
-      $data = $s->get_page(urlencode($_GET['page']).Spage::DATA_EXT);
-      echo $m->render($admin_edit_template, $data);
-      break;
-    case 'delete_page':
-      $s->delete_page(urlencode($_GET['page']).Spage::DATA_EXT);
-      echo $m->render($admin_template, array('message' => 'Page deleted.'));
-      break;
-    case 'list_comments':
-      $comments = $s->list_all_comments(TRUE, 50);
-      $comments['message'] = '<p>
-        Only 50 latest comments are shown.
+  case 'create_page':
+    if (isset($_POST['allow_comments'])) {
+      $template = $default_template_with_comments;
+    } else {
+      $template = $default_template;
+    }
+    $error_code = $s->add_new_page(
+      $_POST,
+      $template,
+      isset($_POST['overwrite'])
+    );
+    if ($error_code === Spage::ERR) {
+      $message = 'Something went wrong. Maybe page with same name already exists?';
+      $template = $admin_template;
+      $page = $_POST;
+    } else {
+      $message = 'Page created.';
+      $template = $admin_continue_template;
+      $page = $s->get_page(urlencode($_POST['url']) . Spage::DATA_EXT);
+    }
+
+    $page['message'] = $message;
+    echo $m->render($template, $page);
+    break;
+  case 'save_page':
+    if (isset($_POST['allow_comments'])) {
+      $template = $default_template_with_comments;
+    } else {
+      $template = $default_template;
+    }
+    $error_code = $s->edit_page($_POST, $template);
+    if ($error_code === Spage::ERR) {
+      $message = 'Something went wrong while saving the page.';
+    } else {
+      $message = 'Page saved.';
+    }
+    $page = $s->get_page(urlencode($_POST['url']) . Spage::DATA_EXT);
+    $page['message'] = $message;
+    echo $m->render($admin_continue_template, $page);
+    break;
+  case 'edit_front_page':
+    $data = $s->get_page('index' . Spage::DATA_EXT);
+    echo $m->render($admin_front_page_template, $data);
+    break;
+  case 'create_front_page':
+    $s->create_front_page($_POST, $front_page_template);
+    echo $m->render(
+      $admin_template,
+      array('message' => 'Front page created.')
+    );
+    break;
+  case 'rebuild_pages':
+    $s->rebuild_pages($default_template, $default_template_with_comments);
+    echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
+    break;
+  case 'list_pages':
+    $data['all_pages'] = $s->list_all_pages();
+    echo $m->render($admin_page_list_template, $data);
+    break;
+  case 'edit_page':
+    $data = $s->get_page(urlencode($_GET['page']) . Spage::DATA_EXT);
+    echo $m->render($admin_edit_template, $data);
+    break;
+  case 'delete_page':
+    $s->delete_page(urlencode($_GET['page']) . Spage::DATA_EXT);
+    echo $m->render($admin_template, array('message' => 'Page deleted.'));
+    break;
+  case 'list_comments':
+    $comments = $s->list_all_comments(TRUE, Spage::MAX_COMMENTS_SHOWN);
+    $comments['message'] = '<p>
+        Only ' . Spage::MAX_COMMENTS_SHOWN . ' latest comments are shown.
         <a href="spage.php?operation=list_all_comments">List all comments</a>.
         </p>';
-      echo $m->render($admin_list_comments_template, $comments);
-      break;
-    case 'list_all_comments':
-      $comments = $s->list_all_comments();
-      echo $m->render($admin_list_comments_template, $comments);
-      break;
-    case 'delete_comments':
-      $comments = $_POST;
-      unset($comments['operation']);
-      $comments = array_keys($comments);
-      $s->delete_comments($comments);
-      echo $m->render($admin_template, array('message' => 'Comments deleted.'));
-      break;
-    default:
-      echo $m->render($admin_template, array());
-      break;
+    echo $m->render($admin_list_comments_template, $comments);
+    break;
+  case 'list_all_comments':
+    $comments = $s->list_all_comments();
+    echo $m->render($admin_list_comments_template, $comments);
+    break;
+  case 'delete_comments':
+    $comments = $_POST;
+    unset($comments['operation']);
+    $comments = array_keys($comments);
+    $s->delete_comments($comments);
+    echo $m->render($admin_template, array('message' => 'Comments deleted.'));
+    break;
+  default:
+    echo $m->render($admin_template, array());
+    break;
   }
 }
 
@@ -718,4 +739,4 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-*/
+ */

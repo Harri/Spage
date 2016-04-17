@@ -113,10 +113,10 @@ $search_results_template = '<!doctype html>
 		<h1>Search results for "{{terms}}"</h1>
 	</header>
 	{{#dropped}}
-		<p>Following search terms were not used since they are under 3 characters: {{terms}}</p>
+		<p>Following search terms were not used since they are under {{min_term_lenght}} characters: {{terms}}</p>
 	{{/dropped}}
 	{{#sliced}}
-		<p>Only first 10 search terms were used. Follwing were not used: {{terms}}</p>
+		<p>Only first {{max_terms}} search terms were used. Follwing were not used: {{terms}}</p>
 	{{/sliced}}
 	<ol>
 	{{#results}}
@@ -175,6 +175,7 @@ $rss_template = '<?xml version="1.0" encoding="utf-8"?>
 			<title>{{title}}</title>
 			<description>{{content_html}}</description>
 			<link>http://spage.example/{{url}}</link>
+			<pubDate>{{pub_date}}</pubDate>
 		</item>
 		{{/pages}}
 	</channel>
