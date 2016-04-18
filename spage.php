@@ -128,7 +128,7 @@ class Spage {
   }
 
   /**
-   * Refreshes front page. If there is no front page, it will NOT be created.
+   * Refreshes front page. If there is no front page, it will NOT be created. Edit timestmap is preserved.
    *
    * @access public
    * @param string $template
@@ -136,7 +136,7 @@ class Spage {
   public function refresh_front_page($template) {
     $current_front = $this->get_page('index' . self::DATA_EXT);
     if ($current_front && $current_front != array()) {
-      $this->create_front_page($current_front, $template);
+      $this->create_front_page($current_front, $template, TRUE);
     }
   }
 
@@ -182,7 +182,7 @@ class Spage {
    * @param string $template
    * @return int
    */
-  public function create_front_page($data, $template) {
+  public function create_front_page($data, $template, $preserve_ts = FALSE) {
     $page_list = $this->list_all_pages();
     $page_list = $page_list['pages'];
 
@@ -203,9 +203,11 @@ class Spage {
       $data['timestamp'] = time();
     }
 
-    $data['date_edited'] = date('Y-m-d');
-    $data['time_edited'] = date('H:i');
-    $data['timestamp_edited'] = time();
+    if (!$preserve_ts) {
+      $data['date_edited'] = date('Y-m-d');
+      $data['time_edited'] = date('H:i');
+      $data['timestamp_edited'] = time();
+    }
 
     array_splice($page_list, self::FRONT_ITEMS);
     $data['few_latests'] = $page_list;
@@ -307,6 +309,7 @@ class Spage {
       );
       $this->create_rss_feed($GLOBALS['rss_template']);
       $this->create_sitemap($GLOBALS['sitemap_template']);
+      $this->refresh_front_page($GLOBALS['front_page_template']);
     }
   }
 
