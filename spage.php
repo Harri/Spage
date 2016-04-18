@@ -18,6 +18,7 @@ require 'templates.php';
 require 'admin_templates.php';
 
 date_default_timezone_set('Europe/Helsinki');
+use \Michelf\Markdown;
 
 $m = new Mustache_Engine;
 
@@ -589,7 +590,8 @@ class Spage {
         NULL,
         0,
         self::MAX_PAGE_SIZE_BYTES
-      )
+      ),
+      array('allowed_classes' => FALSE)
     );
     return $data;
   }
