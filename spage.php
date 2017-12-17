@@ -77,7 +77,7 @@ class Spage {
     if ($overwrite) {
       $data['date'] = htmlspecialchars($data['date']);
       $data['time'] = htmlspecialchars($data['time']);
-      $data['timestamp'] = htmlspecialchars($data['timestamp']);
+      $data['timestamp'] = (int) htmlspecialchars($data['timestamp']);
       $data['date_edited'] = date('Y-m-d');
       $data['time_edited'] = date('H:i');
       $data['timestamp_edited'] = time();
@@ -165,6 +165,20 @@ class Spage {
     if (!isset($data['allow_comments'])) {
       unset($new_page['allow_comments']);
       unset($new_page['allow_comments_checked']);
+    }
+
+    if (isset($orig_page['history'])) {
+      unset($orig_page['history']);
+    }
+    $orig_page['history_id'] = uniqid();
+    $orig_page['archived'] = date('Y-m-d H:i:s');
+
+    $new_page['history'][] = $orig_page;
+
+    # Ideally it should be checked that the overall size of the history is not
+    # gigantic. Until then, 100 old versions should be enough.
+    if (count($new_page['history']) > 100) {
+       array_shift($new_page['history']);
     }
 
     $error = $this->add_new_page($new_page, $template, TRUE);
@@ -715,6 +729,24 @@ if ($current_file === $this_file) {
     $s->delete_comments($comments);
     echo $m->render($admin_template, array('message' => 'Comments deleted.'));
     break;
+  case 'history':
+    $page_with_history = $s->get_page(
+      urlencode($_POST['url'] . Spage::DATA_EXT)
+    );
+    $page = '';
+    foreach ($page_with_history['history'] as $version) {
+      if ($version['history_id'] === $_POST['history_id']) {
+        $page = $version;
+        break;
+      }
+    }
+    if ($page === '') {
+      $page = array();
+      $page['message'] = 'Could not find given archived version.';
+    }
+    $page['history'] = $page_with_history['history'];
+    echo $m->render($admin_edit_template, $page);
+    break;
   default:
     echo $m->render($admin_template, array());
     break;
@@ -723,7 +755,7 @@ if ($current_file === $this_file) {
 
 /*
 
-Copyright Harri Paavola
+Copyright Harri Paavola, harri.paavola@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

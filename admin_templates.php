@@ -154,6 +154,21 @@ $admin_edit_template = '<!doctype html>
 	<textarea id="outputPane" class="pane" rows="20" readonly="readonly"></textarea>
 	<div id="previewPane" class="pane"></div>
 	<textarea id="syntaxPane" class="pane" rows="20" readonly="readonly">Visit http://daringfireball.net/projects/markdown/syntax</textarea>
+	<form action="spage.php" method="post">
+		<fieldset>
+			<legend>Select old version of the page</legend>
+			<input name="operation" id="operation" value="history" type="hidden">
+			<input name="url" id="url" value="{{url}}" type="hidden">
+			<select name="history_id">
+				{{#history}}
+					<option value="{{history_id}}">Archived: {{archived}}</option>
+				{{/history}}
+			</select>
+		</fieldset>
+		<fieldset>
+			<button type="submit">Submit</button>
+		</fieldset>
+	</form>
 	<footer id="footer">
 		<span id="convertTextControls">
 			<button id="convertTextButton" type="button" title="Convert text now">
@@ -310,6 +325,21 @@ $admin_continue_template = '<!doctype html>
 	<textarea id="outputPane" class="pane" rows="20" readonly="readonly"></textarea>
 	<div id="previewPane" class="pane"></div>
 	<textarea id="syntaxPane" class="pane" rows="20" readonly="readonly">Visit http://daringfireball.net/projects/markdown/syntax</textarea>
+	<form action="spage.php" method="post">
+		<fieldset>
+			<legend>Select old version of the page</legend>
+			<input name="operation" id="operation" value="history" type="hidden">
+			<input name="url" id="url" value="{{url}}" type="hidden">
+			<select name="history_id">
+				{{#history}}
+					<option value="{{history_id}}">Archived: {{archived}}</option>
+				{{/history}}
+			</select>
+		</fieldset>
+		<fieldset>
+			<button type="submit">Submit</button>
+		</fieldset>
+	</form>
 	<footer id="footer">
 		<span id="convertTextControls">
 			<button id="convertTextButton" type="button" title="Convert text now">
