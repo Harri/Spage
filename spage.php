@@ -70,7 +70,7 @@ class Spage {
    */
   public function add_new_page($data, $template, $overwrite = FALSE, $update_feed = TRUE) {
     $data['url'] = mb_substr($data['url'], 0, self::MAX_FILE_NAME_LENGTH);
-    $data['url'] = urlencode($data['url']);
+    $data['url'] = $this->validate_filename($data['url']);
     $data['title'] = htmlspecialchars($data['title']);
     $data['content_html'] = Markdown::defaultTransform($data['content']);
 
@@ -518,6 +518,17 @@ class Spage {
   }
 
   /**
+   * Helper function for making sure that the file name is valid
+   * @access public
+   * @param string $raw_filename
+   * @return string
+   */
+  public function validate_filename($raw_filename) {
+    $valid_filename = mb_ereg_replace("([^a-zA-Z0-9-_,])", '_', $raw_filename);
+    return $valid_filename;
+  }
+
+  /**
    * Helper function to verify if string ends with given substring
    *
    * @access public
@@ -661,7 +672,7 @@ if ($current_file === $this_file) {
     } else {
       $message = 'Page created.';
       $template = $admin_continue_template;
-      $page = $s->get_page(urlencode($_POST['url']) . Spage::DATA_EXT);
+      $page = $s->get_page($s->validate_filename($_POST['url']) . Spage::DATA_EXT);
     }
 
     $page['message'] = $message;
@@ -679,7 +690,7 @@ if ($current_file === $this_file) {
     } else {
       $message = 'Page saved.';
     }
-    $page = $s->get_page(urlencode($_POST['url']) . Spage::DATA_EXT);
+    $page = $s->get_page($s->validate_filename($_POST['url']) . Spage::DATA_EXT);
     $page['message'] = $message;
     echo $m->render($admin_continue_template, $page);
     break;
@@ -703,11 +714,11 @@ if ($current_file === $this_file) {
     echo $m->render($admin_page_list_template, $data);
     break;
   case 'edit_page':
-    $data = $s->get_page(urlencode($_GET['page']) . Spage::DATA_EXT);
+    $data = $s->get_page($s->validate_filename($_GET['page']) . Spage::DATA_EXT);
     echo $m->render($admin_edit_template, $data);
     break;
   case 'delete_page':
-    $s->delete_page(urlencode($_GET['page']) . Spage::DATA_EXT);
+    $s->delete_page($s->validate_filename($_GET['page']) . Spage::DATA_EXT);
     echo $m->render($admin_template, array('message' => 'Page deleted.'));
     break;
   case 'list_comments':
@@ -731,7 +742,7 @@ if ($current_file === $this_file) {
     break;
   case 'history':
     $page_with_history = $s->get_page(
-      urlencode($_POST['url'] . Spage::DATA_EXT)
+      $s->validate_filename($_POST['url'] . Spage::DATA_EXT)
     );
     $page = '';
     foreach ($page_with_history['history'] as $version) {
@@ -777,3 +788,4 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
  */
+
