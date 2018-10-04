@@ -56,7 +56,8 @@ class Spage {
    *   timestamp_edited - same as date and time, but in UNIX time
    *
    * Each page might have any of the following data
-   *    allow_comments - If set, uses template with comments and comment form
+   *    allow_comments - If set and value not 'disallow_comments'
+   *    uses template with comments and comment form
    *    draft - If set, no *.html file is created
    *    unlisted - If set, the page is not shown in RSS, page list or search
    *
@@ -166,6 +167,21 @@ class Spage {
       unset($new_page['allow_comments']);
       unset($new_page['allow_comments_checked']);
     }
+    elseif ($data['allow_comments'] === 'moderate_comments') {
+      unset($new_page['allow_comments_checked']);
+      unset($new_page['disallow_comments_checked'])
+      $new_page['moderate_comments_checked'] = 'checked';
+    }
+    elseif ($data['allow_comments'] === 'disallow_comments') {
+      unset($new_page['allow_comments_checked']);
+      unset($new_page['moderate_comments_checked']);
+      $new_page['disallow_comments_checked'] = 'checked';
+    }
+    elseif ($data['allow_comments'] === 'allow_comments') {
+      unset($new_page['disallow_comments_checked']);
+      unset($new_page['moderate_comments_checked']);
+      $new_page['allow_comments_checked'] = 'checked';
+    }
 
     if (isset($orig_page['history'])) {
       unset($orig_page['history']);
@@ -256,7 +272,7 @@ class Spage {
         // If page has comments enabled, let's use proper template
         if (
           isset($content['allow_comments']) &&
-          $content['allow_comments'] === 'allow_comments'
+          $content['allow_comments'] != 'disallow_comments'
         ) {
           $template = $template_with_comments;
         }
@@ -290,12 +306,25 @@ class Spage {
         $data['unlisted_checked'] = 'checked';
       }
 
-      if (
-        isset($data['allow_comments']) &&
-        $data['allow_comments'] === 'allow_comments'
-      ) {
-        $data['allow_comments_checked'] = 'checked';
-      }
+    if (!isset($data['allow_comments'])) {
+      unset($data['allow_comments']);
+      unset($data['allow_comments_checked']);
+    }
+    elseif ($data['allow_comments'] === 'moderate_comments') {
+      unset($data['allow_comments_checked']);
+      unset($data['disallow_comments_checked'])
+      $data['moderate_comments_checked'] = 'checked';
+    }
+    elseif ($data['allow_comments'] === 'disallow_comments') {
+      unset($data['allow_comments_checked']);
+      unset($data['moderate_comments_checked']);
+      $data['disallow_comments_checked'] = 'checked';
+    }
+    elseif ($data['allow_comments'] === 'allow_comments') {
+      unset($data['disallow_comments_checked']);
+      unset($data['moderate_comments_checked']);
+      $data['allow_comments_checked'] = 'checked';
+    }
       return $data;
     }
     return array();
@@ -422,13 +451,16 @@ class Spage {
 
   /**
    * Lists all comments from all pages.
+   * If $type is comments, all public comments are listed.
+   * If $type is queue, all unpublished comments are listed.
    *
    * @access public
    * @param bool $limit
    * @param int $amount
+   * @param string $type
    * @return array
    */
-  public function list_all_comments($limit = FALSE, $amount = 0) {
+  public function list_all_comments($limit = FALSE, $amount = 0, $type='comments') {
     $all_pages = $this->list_all_pages();
     $comments = array();
 
@@ -436,9 +468,9 @@ class Spage {
     foreach ($all_pages as $page_type) {
       // Loops through all pages in one page type
       foreach ($page_type as $page) {
-        if (isset($page['comments'])) {
+        if (isset($page[$type])) {
           // Loops through all comments in one page
-          foreach ($page['comments'] as $c) {
+          foreach ($page[$type] as $c) {
             $comments[] = array(
               'author' => $c['author'],
               'comment' => $c['comment'],
@@ -453,25 +485,26 @@ class Spage {
 
     $comments = $this->aasort($comments, 'timestamp');
     $comments = array_reverse($comments);
-    $comments = array('comments' => $comments);
+    $comments = array($type => $comments);
     if ($limit) {
-      $comments['comments'] = array_slice($comments['comments'], 0, $amount);
+      $comments[$type] = array_slice($comments[$type], 0, $amount);
     }
 
     return $comments;
   }
 
   /**
-   * Deletes given comments
+   * Moderate given comments
    *
    * @access public
-   * @param array $bad_comments
+   * @param array $moderated_comments
+   * @param string $type
    * @return void
    */
-  public function delete_comments($bad_comments) {
+  public function moderate_comments($moderated_comments, $type='comments') {
     $affected_pages = array();
     // Get list of affected pages
-    foreach ($bad_comments as $comment) {
+    foreach ($moderated_comments as $comment) {
       // $comment is pagename_commentid
       $comment = explode('_', $comment);
       $affected_pages[] = $comment[0];
@@ -485,19 +518,78 @@ class Spage {
         break;
       }
       // Loop through all comments in current page
-      $comments_count = count($page_content['comments']);
+      $comments_count = count($page_content[$type]);
       for ($i = 0; $i < $comments_count; $i++) {
         // If current comment UUID is marked for deletion > unset
-        if (in_array($page_content['comments'][$i]['uuid'], $bad_comments)) {
-          unset($page_content['comments'][$i]);
+        if (in_array($page_content[$type][$i]['uuid'], $moderated_comments)) {
+          // if comment is marked for approvel (from queue to publish), then
+          // first move that comment to comments array
+          if ($page_content[$type][$i]['uuid'] == 'publish') {
+            $page_content['comments'][] = $page_content['comment_queue'][$i];
+            $page_content['comments'] = $this->aasort(
+              $page_content['comments'],
+              'timestamp'
+            );
+            unset($page_content[$type][$i]);
+          }
+          elseif ($page_content[$type][$i]['uuid'] == 'publish') {
+            unset($page_content[$type][$i]);
+          }
+
         }
       }
       // Reset comment indexes, remove comments section if none is left
-      $comments = array_values($page_content['comments']);
+      $comments = array_values($page_content[$type]);
       if (!empty($comments)) {
-        $page_content['comments'] = $comments;
+        $page_content[$type] = $comments;
       } else {
-        unset($page_content['comments']);
+        unset($page_content[$type]);
+      }
+
+      $this->write_to_file(
+        $page_content['url'] . Spage::DATA_EXT,
+        serialize($page_content)
+      );
+      // Drafts can not have PAGE_EXT files
+      if (!isset($page_content['draft'])) {
+        $this->write_to_file(
+          $page_content['url'] . Spage::PAGE_EXT,
+          $GLOBALS['m']->render(
+            $GLOBALS['default_template_with_comments'],
+            $page_content
+          )
+        );
+      }
+    }
+  }
+
+  public function publish_comments($good_comments) {
+    $affected_pages = array();
+    // Get list of affected pages
+    foreach ($good_comments as $comment) {
+      // $comment is pagename_commentid
+      $comment = explode('_', $comment);
+      $affected_pages[] = $comment[0];
+    }
+    $affected_pages = array_unique($affected_pages);
+
+    // Open each affected page
+    foreach ($affected_pages as $page) {
+      $page_content = $this->get_page($page . self::DATA_EXT);
+      if (empty($page_content)) {
+        break;
+      }
+
+      $comments_count = count($page_content['comment_queue']);
+      for ($i = 0; $i < $comments_count; $i++) {
+        if (in_array($page_content['comment_queue'][$i]['uuid'], $good_comments)) {
+          $page_content['comments'][] = $page_content['comment_queue'][$i];
+          $page_content['comments'] = $this->aasort(
+            $page_content['comments'],
+            'timestamp'
+          );
+          unset($page_content['comment_queue'][$i]);
+        }
       }
 
       $this->write_to_file(
@@ -524,7 +616,7 @@ class Spage {
    * @return string
    */
   public function validate_filename($raw_filename) {
-    $valid_filename = mb_ereg_replace("([^a-zA-Z0-9-_,])", '_', $raw_filename);
+    $valid_filename = mb_ereg_replace("([^a-zA-Z0-9-_,.])", '_', $raw_filename);
     return $valid_filename;
   }
 
@@ -655,7 +747,10 @@ if ($current_file === $this_file) {
 
   switch ($_REQUEST['operation']) {
   case 'create_page':
-    if (isset($_POST['allow_comments'])) {
+    if (
+      isset($_POST['allow_comments']) &&
+      $_POST['allow_comments'] != 'disallow_comments'
+    ) {
       $template = $default_template_with_comments;
     } else {
       $template = $default_template;
@@ -679,7 +774,10 @@ if ($current_file === $this_file) {
     echo $m->render($template, $page);
     break;
   case 'save_page':
-    if (isset($_POST['allow_comments'])) {
+    if (
+      isset($_POST['allow_comments']) &&
+      $_POST['allow_comments'] != 'disallow_comments'
+    ) {
       $template = $default_template_with_comments;
     } else {
       $template = $default_template;
@@ -729,16 +827,35 @@ if ($current_file === $this_file) {
         </p>';
     echo $m->render($admin_list_comments_template, $comments);
     break;
+  case 'list_comments_in_queue':
+    $comments = $s->list_all_comments(TRUE, Spage::MAX_COMMENTS_SHOWN, 'comment_queue');
+    $comments['message'] = '<p>
+        Only ' . Spage::MAX_COMMENTS_SHOWN . ' latest comments in queue are shown.
+        <a href="spage.php?operation=list_all_comments_in_queue">List all comments in queue</a>.
+        </p>';
+    echo $m->render($admin_comment_queue_template, $comments);
+    break;
   case 'list_all_comments':
     $comments = $s->list_all_comments();
     echo $m->render($admin_list_comments_template, $comments);
+    break;
+  case 'list_all_comments_in_queue':
+    $queue = $s->list_all_comments(FALSE, 0, 'comment_queue');
+    echo $m->render($admin_comment_queue_template, $queue);
     break;
   case 'delete_comments':
     $comments = $_POST;
     unset($comments['operation']);
     $comments = array_keys($comments);
-    $s->delete_comments($comments);
+    $s->moderate_comments($comments);
     echo $m->render($admin_template, array('message' => 'Comments deleted.'));
+    break;
+  case 'moderate_comments':
+    $comments = $_POST;
+    unset($comments['operation']);
+    $comments = array_keys($comments);
+    $s->moderate_comments($comments, 'comment_queue');
+    echo $m->render($admin_template, array('message' => 'Comments deleted and/or approved.'));
     break;
   case 'history':
     $page_with_history = $s->get_page(
@@ -755,6 +872,7 @@ if ($current_file === $this_file) {
       $page = array();
       $page['message'] = 'Could not find given archived version.';
     }
+    $page['message'] = 'Review and approve going back to selected version.';
     $page['history'] = $page_with_history['history'];
     echo $m->render($admin_edit_template, $page);
     break;

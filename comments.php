@@ -30,7 +30,7 @@ function comment($page_name, $author, $comment) {
     empty($page) ||
     isset($page['draft']) ||
     !isset($page['allow_comments']) ||
-    $page['allow_comments'] !== 'allow_comments'
+    !in_array($page['allow_comments'], array('allow_comments', 'moderate_comments'))
   ) {
     header("HTTP/1.0 404 Not Found");
     die();
@@ -74,7 +74,15 @@ function comment($page_name, $author, $comment) {
   $comment['comment'] = '<p>' . $comment['comment'] . '</p>';
   $comment['comment'] = url_to_link($comment['comment']);
   $comment['author'] = email_to_link($comment['author']);
-  $page['comments'][] = $comment;
+
+  if (
+    isset($page['allow_comments']) &&
+    $page['allow_comments'] === 'moderate_comments') {
+    $page['comment_queue'][] = $comment;
+  }
+  else {
+    $page['comments'][] = $comment;
+  }
 
   // edit_page or add_new_page from Spage can not be used
   // since they modify the edit timestamps of the page.

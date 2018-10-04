@@ -17,6 +17,7 @@ $admin_template = '<!doctype html>
 			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
 			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 			<li><a href="spage.php?operation=list_comments">Moderate comments</a></li>
+			<li><a href="spage.php?operation=list_comments_in_queue">Moderate comments in queue</a></li>
 		</ul>
 		{{message}}
 	</header>
@@ -34,7 +35,10 @@ $admin_template = '<!doctype html>
 			<button type="submit">Submit</button>
 			<input type="checkbox" id="draft" name="draft" value="draft"><label for="draft">Save as draft</label>
 			<input type="checkbox" id="unlisted" name="unlisted" value="unlisted"><label for="unlisted">Save as unlisted</label>
-			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments"><label for="allow_comments">Allow comments</label>
+			<input type="radio" id="allow_comments" name="allow_comments" value="allow_comments"><label for="allow_comments">Allow comments</label>
+			<input type="radio" id="moderate_comments" name="allow_comments" value="moderate_comments"><label for="moderate_comments">Moderate comments</label>
+			<input type="radio" id="disallow_comments" name="allow_comments" value="disallow_comments" checked="checked"><label for="disallow_comments">Disallow comments</label>
+
 		</fieldset>
 	</form>
 	<select id="paneSetting">
@@ -79,6 +83,7 @@ $admin_list_comments_template = '<!doctype html>
 			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
 			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 			<li><a href="spage.php?operation=list_comments">Moderate comments</a></li>
+			<li><a href="spage.php?operation=list_comments_in_queue">Moderate comments in queue</a></li>
 		</ul>
 		{{{message}}}
 	</header>
@@ -93,6 +98,52 @@ $admin_list_comments_template = '<!doctype html>
 				<label for="{{uuid}}">{{{comment}}}, {{{author}}}, {{uuid}}</label>
 			</div>
 			{{/comments}}
+		</fieldset>
+		<fieldset>
+			<button type="submit">Submit</button>
+		</fieldset>
+	</form>
+	<footer id="footer">
+	</footer>
+</body>
+</html>';
+
+$admin_comment_queue_template = '<!doctype html>
+<html class="page active" lang="en">
+	<head>
+	<meta charset="utf-8">
+	<title>Create new page - Spage</title>
+	<link rel="stylesheet" href="style.css">
+	<script type="text/javascript" src="lib/showdown.js"></script>
+	<script type="text/javascript" src="lib/showdown-gui.js"></script>
+</head>
+<body id="admin">
+	<header>
+		<h1>Spage</h1>
+		<ul>
+			<li><a href="spage.php">Admin front page</a></li>
+			<li><a href="spage.php?operation=rebuild_pages">Rebuild all pages</a></li>
+			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
+			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
+			<li><a href="spage.php?operation=list_comments">Moderate comments</a></li>
+			<li><a href="spage.php?operation=list_comments_in_queue">Moderate comments in queue</a></li>
+		</ul>
+		{{{message}}}
+	</header>
+	<form action="spage.php" method="post">
+		<fieldset>
+			<legend>Moderate comments in queue</legend>
+			<input name="operation" id="operation" value="moderate_comments" type="hidden">
+			{{#comment_queue}}
+			<div class="comment">
+				<p>Page: <a href="{{url}}" target="_blank">{{url}}</a></p>
+				<input type="radio" id="{{uuid}}_del" name="{{uuid}}" value="delete">
+				<label for="{{uuid}}_del">Delete</label>
+				<input type="radio" id="{{uuid}}_pub" name="{{uuid}}" value="publish">
+				<label for="{{uuid}}_pub">Publish</label>
+				<div>{{{comment}}}, {{{author}}}, {{uuid}}</div>
+			</div>
+			{{/comment_queue}}
 		</fieldset>
 		<fieldset>
 			<button type="submit">Submit</button>
@@ -121,6 +172,7 @@ $admin_edit_template = '<!doctype html>
 			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
 			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 			<li><a href="spage.php?operation=list_comments">Moderate comments</a></li>
+			<li><a href="spage.php?operation=list_comments_in_queue">Moderate comments in queue</a></li>
 		</ul>
 		{{message}}
 	</header>
@@ -143,7 +195,9 @@ $admin_edit_template = '<!doctype html>
 			<button type="submit">Submit</button>
 			<input type="checkbox" id="draft" name="draft" value="draft" {{draft_checked}}><label for="draft">Save as draft</label>
 			<input type="checkbox" id="unlisted" name="unlisted" value="unlisted" {{unlisted_checked}}><label for="unlisted">Save as unlisted</label>
-			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments" {{allow_comments_checked}}><label for="allow_comments">Allow comments</label>
+			<input type="radio" id="allow_comments" name="allow_comments" value="allow_comments" {{allow_comments_checked}}><label for="allow_comments">Allow comments</label>
+			<input type="radio" id="moderate_comments" name="allow_comments" value="moderate_comments" {{moderate_comments_checked}}><label for="moderate_comments">Moderate comments</label>
+			<input type="radio" id="disallow_comments" name="allow_comments" value="disallow_comments" {{disallow_comments_checked}}><label for="disallow_comments">Disallow comments</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">
@@ -202,6 +256,7 @@ $admin_page_list_template = '<!doctype html>
 			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
 			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 			<li><a href="spage.php?operation=list_comments">Moderate comments</a></li>
+			<li><a href="spage.php?operation=list_comments_in_queue">Moderate comments in queue</a></li>
 		</ul>
 		{{message}}
 	</header>
@@ -255,6 +310,7 @@ $admin_front_page_template = '<!doctype html>
 			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
 			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 			<li><a href="spage.php?operation=list_comments">Moderate comments</a></li>
+			<li><a href="spage.php?operation=list_comments_in_queue">Moderate comments in queue</a></li>
 		</ul>
 		{{message}}
 	</header>
@@ -292,6 +348,7 @@ $admin_continue_template = '<!doctype html>
 			<li><a href="spage.php?operation=edit_front_page">Create/update index.html</a></li>
 			<li><a href="spage.php?operation=list_pages">Edit page</a></li>
 			<li><a href="spage.php?operation=list_comments">Moderate comments</a></li>
+			<li><a href="spage.php?operation=list_comments_in_queue">Moderate comments in queue</a></li>
 		</ul>
 		{{message}}
 	</header>
@@ -314,7 +371,9 @@ $admin_continue_template = '<!doctype html>
 			<button type="submit">Submit</button>
 			<input type="checkbox" id="draft" name="draft" value="draft" {{draft_checked}}><label for="draft">Save as draft</label>
 			<input type="checkbox" id="unlisted" name="unlisted" value="unlisted" {{unlisted_checked}}><label for="unlisted">Save as unlisted</label>
-			<input type="checkbox" id="allow_comments" name="allow_comments" value="allow_comments" {{allow_comments_checked}}><label for="allow_comments">Allow comments</label>
+			<input type="radio" id="allow_comments" name="allow_comments" value="allow_comments"><label for="allow_comments">Allow comments</label>
+			<input type="radio" id="moderate_comments" name="allow_comments" value="moderate_comments"><label for="moderate_comments">Moderate comments</label>
+			<input type="radio" id="disallow_comments" name="allow_comments" value="disallow_comments" checked="checked"><label for="disallow_comments">Disallow comments</label>
 		</fieldset>
 	</form>
 	<select id="paneSetting">

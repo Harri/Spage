@@ -1,6 +1,6 @@
 Spage
 =
-Simple flat file CMS written in PHP7. Each page gets its own `*.html` file which is served for users and `*.spage` file is kept for maintenance and search purposes. 
+Simple flat file CMS written in PHP7. Each page gets its own `*.html` file which is served for users and `*.spage` file is kept for maintenance and search purposes.
 
 * Create and edit pages using Markdown
   * Live preview is shown while creating and editing pages using Showdown.js
@@ -12,6 +12,7 @@ Simple flat file CMS written in PHP7. Each page gets its own `*.html` file which
 * Comments
   * Moderation for admins
   * Enable/disable per page
+  * Pre and post moderation NOT READY, WORK IN PROGRESS
 
 Configuration and usage
 -
