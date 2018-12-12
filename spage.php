@@ -113,7 +113,11 @@ class Spage {
         );
       }
 
-      if ($data_file_added !== self::OK || $page_file_added !== self::OK) {
+      if (
+        $data_file_added !== self::OK ||
+        isset($page_file_added) &&
+        $page_file_added !== self::OK
+      ) {
         return self::ERR;
       }
 
