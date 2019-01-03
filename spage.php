@@ -528,7 +528,7 @@ class Spage {
    * @return string
    */
   public function validate_filename($raw_filename) {
-    $valid_filename = mb_ereg_replace("([^a-zA-Z0-9-_,.])", '_', $raw_filename);
+    $valid_filename = mb_ereg_replace("([^a-zA-Z0-9-_,.\-])", '_', $raw_filename);
     return $valid_filename;
   }
 
