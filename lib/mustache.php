@@ -3,14 +3,14 @@
 /*
  * This file is part of Mustache.php.
  *
- * (c) 2010-2016 Justin Hileman
+ * (c) 2010-2021 Justin Hileman
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 class Mustache_Engine
 {
-    const VERSION        = '2.10.0';
+    const VERSION        = '2.13.0';
     const SPEC_VERSION   = '1.1.2';
     const PRAGMA_FILTERS      = 'FILTERS';
     const PRAGMA_BLOCKS       = 'BLOCKS';
@@ -34,12 +34,16 @@ class Mustache_Engine
     private $logger;
     private $strictCallables = false;
     private $pragmas = array();
+    private $delimiters;
         private $tokenizer;
     private $parser;
     private $compiler;
     public function __construct(array $options = array())
     {
         if (isset($options['template_class_prefix'])) {
+            if ((string) $options['template_class_prefix'] === '') {
+                throw new Mustache_Exception_InvalidArgumentException('Mustache Constructor "template_class_prefix" must not be empty');
+            }
             $this->templateClassPrefix = $options['template_class_prefix'];
         }
         if (isset($options['cache'])) {
@@ -82,6 +86,9 @@ class Mustache_Engine
         }
         if (isset($options['strict_callables'])) {
             $this->strictCallables = $options['strict_callables'];
+        }
+        if (isset($options['delimiters'])) {
+            $this->delimiters = $options['delimiters'];
         }
         if (isset($options['pragmas'])) {
             foreach ($options['pragmas'] as $pragma) {
@@ -250,16 +257,21 @@ class Mustache_Engine
     }
     public function getTemplateClassName($source)
     {
-        return $this->templateClassPrefix . md5(sprintf(
-            'version:%s,escape:%s,entity_flags:%i,charset:%s,strict_callables:%s,pragmas:%s,source:%s',
-            self::VERSION,
-            isset($this->escape) ? 'custom' : 'default',
-            $this->entityFlags,
-            $this->charset,
-            $this->strictCallables ? 'true' : 'false',
-            implode(' ', $this->getPragmas()),
-            $source
-        ));
+                                                                        $chunks = array(
+            'charset'         => $this->charset,
+            'delimiters'      => $this->delimiters ? $this->delimiters : '{{ }}',
+            'entityFlags'     => $this->entityFlags,
+            'escape'          => isset($this->escape) ? 'custom' : 'default',
+            'key'             => ($source instanceof Mustache_Source) ? $source->getKey() : 'source',
+            'pragmas'         => $this->getPragmas(),
+            'strictCallables' => $this->strictCallables,
+            'version'         => self::VERSION,
+        );
+        $key = json_encode($chunks);
+                        if (!$source instanceof Mustache_Source) {
+            $key .= "\n" . $source;
+        }
+        return $this->templateClassPrefix . md5($key);
     }
     public function loadTemplate($name)
     {
@@ -315,7 +327,7 @@ class Mustache_Engine
     }
     private function tokenize($source)
     {
-        return $this->getTokenizer()->scan($source);
+        return $this->getTokenizer()->scan($source, $this->delimiters);
     }
     private function parse($source)
     {
@@ -325,13 +337,16 @@ class Mustache_Engine
     }
     private function compile($source)
     {
-        $tree = $this->parse($source);
         $name = $this->getTemplateClassName($source);
         $this->log(
             Mustache_Logger::INFO,
             'Compiling template to "{className}" class',
             array('className' => $name)
         );
+        if ($source instanceof Mustache_Source) {
+            $source = $source->getSource();
+        }
+        $tree = $this->parse($source);
         $compiler = $this->getCompiler();
         $compiler->setPragmas($this->getPragmas());
         return $compiler->compile($source, $tree, $name, isset($this->escape), $this->charset, $this->strictCallables, $this->entityFlags);
@@ -347,6 +362,7 @@ interface Mustache_Cache
 {
     public function load($key);
     public function cache($key, $value);
+    public function setLogger($logger = null);
 }
 abstract class Mustache_Cache_AbstractCache implements Mustache_Cache
 {
@@ -412,10 +428,10 @@ class Mustache_Cache_FilesystemCache extends Mustache_Cache_AbstractCache
                 array('dirName' => $dirName)
             );
             @mkdir($dirName, 0777, true);
-            if (!is_dir($dirName)) {
+                        if (!is_dir($dirName)) {
                 throw new Mustache_Exception_RuntimeException(sprintf('Failed to create cache directory "%s".', $dirName));
             }
-        }
+                    }
         return $dirName;
     }
     private function writeFile($fileName, $value)
@@ -433,14 +449,14 @@ class Mustache_Cache_FilesystemCache extends Mustache_Cache_AbstractCache
                 @chmod($fileName, $mode);
                 return;
             }
-            $this->log(
+                        $this->log(
                 Mustache_Logger::ERROR,
                 'Unable to rename Mustache temp cache file: "{tempName}" -> "{fileName}"',
                 array('tempName' => $tempFile, 'fileName' => $fileName)
             );
-        }
-        throw new Mustache_Exception_RuntimeException(sprintf('Failed to write cache file "%s".', $fileName));
-    }
+                    }
+                throw new Mustache_Exception_RuntimeException(sprintf('Failed to write cache file "%s".', $fileName));
+            }
 }
 class Mustache_Cache_NoopCache extends Mustache_Cache_AbstractCache
 {
@@ -586,7 +602,6 @@ class Mustache_Compiler
             {
                 $this->lambdaHelper = new Mustache_LambdaHelper($this->mustache, $context);
                 $buffer = \'\';
-                $newContext = array();
         %s
                 return $buffer;
             }
@@ -599,7 +614,6 @@ class Mustache_Compiler
             public function renderInternal(Mustache_Context $context, $indent = \'\')
             {
                 $buffer = \'\';
-                $newContext = array();
         %s
                 return $buffer;
             }
@@ -618,21 +632,25 @@ class Mustache_Compiler
         $blockFunction = $context->findInBlock(%s);
         if (is_callable($blockFunction)) {
             $buffer .= call_user_func($blockFunction, $context);
-        } else {%s
-        }
+        %s}
     ';
+    const BLOCK_VAR_ELSE = '} else {%s';
     private function blockVar($nodes, $id, $start, $end, $otag, $ctag, $level)
     {
         $id = var_export($id, true);
-        return sprintf($this->prepare(self::BLOCK_VAR, $level), $id, $this->walk($nodes, $level));
+        $else = $this->walk($nodes, $level);
+        if ($else !== '') {
+            $else = sprintf($this->prepare(self::BLOCK_VAR_ELSE, $level + 1, false, true), $else);
+        }
+        return sprintf($this->prepare(self::BLOCK_VAR, $level), $id, $else);
     }
-    const BLOCK_ARG = '$newContext[%s] = array($this, \'block%s\');';
+    const BLOCK_ARG = '%s => array($this, \'block%s\'),';
     private function blockArg($nodes, $id, $start, $end, $otag, $ctag, $level)
     {
         $key = $this->block($nodes);
         $keystr = var_export($key, true);
         $id = var_export($id, true);
-        return sprintf($this->prepare(self::BLOCK_ARG, 1), $id, $key);
+        return sprintf($this->prepare(self::BLOCK_ARG, $level), $id, $key);
     }
     const BLOCK_FUNCTION = '
         public function block%s($context)
@@ -680,7 +698,7 @@ class Mustache_Compiler
             return $buffer;
         }
     ';
-    private function section($nodes, $id, $filters, $start, $end, $otag, $ctag, $level, $arg = false)
+    private function section($nodes, $id, $filters, $start, $end, $otag, $ctag, $level)
     {
         $source   = var_export(substr($this->source, $start, $end - $start), true);
         $callable = $this->getCallable();
@@ -696,14 +714,10 @@ class Mustache_Compiler
         if (!isset($this->sections[$key])) {
             $this->sections[$key] = sprintf($this->prepare(self::SECTION), $key, $callable, $source, $helper, $delims, $this->walk($nodes, 2));
         }
-        if ($arg === true) {
-            return $key;
-        } else {
-            $method  = $this->getFindMethod($id);
-            $id      = var_export($id, true);
-            $filters = $this->getFilters($filters, $level);
-            return sprintf($this->prepare(self::SECTION_CALL, $level), $id, $method, $id, $filters, $key);
-        }
+        $method  = $this->getFindMethod($id);
+        $id      = var_export($id, true);
+        $filters = $this->getFilters($filters, $level);
+        return sprintf($this->prepare(self::SECTION_CALL, $level), $id, $method, $id, $filters, $key);
     }
     const INVERTED_SECTION = '
         // %s inverted section
@@ -739,21 +753,28 @@ class Mustache_Compiler
         );
     }
     const PARENT = '
-        %s
-        if ($parent = $this->mustache->LoadPartial(%s)) {
-            $context->pushBlockContext($newContext);
+        if ($parent = $this->mustache->loadPartial(%s)) {
+            $context->pushBlockContext(array(%s
+            ));
             $buffer .= $parent->renderInternal($context, $indent);
             $context->popBlockContext();
+        }
+    ';
+    const PARENT_NO_CONTEXT = '
+        if ($parent = $this->mustache->loadPartial(%s)) {
+            $buffer .= $parent->renderInternal($context, $indent);
         }
     ';
     private function parent($id, $indent, array $children, $level)
     {
         $realChildren = array_filter($children, array(__CLASS__, 'onlyBlockArgs'));
+        if (empty($realChildren)) {
+            return sprintf($this->prepare(self::PARENT_NO_CONTEXT, $level), var_export($id, true));
+        }
         return sprintf(
             $this->prepare(self::PARENT, $level),
-            $this->walk($realChildren, $level),
             var_export($id, true),
-            var_export($indent, true)
+            $this->walk($realChildren, $level + 1)
         );
     }
     private static function onlyBlockArgs(array $node)
@@ -967,10 +988,13 @@ class Mustache_Exception_RuntimeException extends RuntimeException implements Mu
 class Mustache_Exception_SyntaxException extends LogicException implements Mustache_Exception
 {
     protected $token;
-    public function __construct($msg, array $token)
+    public function __construct($msg, array $token, Exception $previous = null)
     {
         $this->token = $token;
-        parent::__construct($msg);
+        if (version_compare(PHP_VERSION, '5.3.0', '>=')) {
+            parent::__construct($msg, 0, $previous);
+        } else {
+            parent::__construct($msg);         }
     }
     public function getToken()
     {
@@ -980,10 +1004,14 @@ class Mustache_Exception_SyntaxException extends LogicException implements Musta
 class Mustache_Exception_UnknownFilterException extends UnexpectedValueException implements Mustache_Exception
 {
     protected $filterName;
-    public function __construct($filterName)
+    public function __construct($filterName, Exception $previous = null)
     {
         $this->filterName = $filterName;
-        parent::__construct(sprintf('Unknown filter: %s', $filterName));
+        $message = sprintf('Unknown filter: %s', $filterName);
+        if (version_compare(PHP_VERSION, '5.3.0', '>=')) {
+            parent::__construct($message, 0, $previous);
+        } else {
+            parent::__construct($message);         }
     }
     public function getFilterName()
     {
@@ -993,10 +1021,14 @@ class Mustache_Exception_UnknownFilterException extends UnexpectedValueException
 class Mustache_Exception_UnknownHelperException extends InvalidArgumentException implements Mustache_Exception
 {
     protected $helperName;
-    public function __construct($helperName)
+    public function __construct($helperName, Exception $previous = null)
     {
         $this->helperName = $helperName;
-        parent::__construct(sprintf('Unknown helper: %s', $helperName));
+        $message = sprintf('Unknown helper: %s', $helperName);
+        if (version_compare(PHP_VERSION, '5.3.0', '>=')) {
+            parent::__construct($message, 0, $previous);
+        } else {
+            parent::__construct($message);         }
     }
     public function getHelperName()
     {
@@ -1006,10 +1038,14 @@ class Mustache_Exception_UnknownHelperException extends InvalidArgumentException
 class Mustache_Exception_UnknownTemplateException extends InvalidArgumentException implements Mustache_Exception
 {
     protected $templateName;
-    public function __construct($templateName)
+    public function __construct($templateName, Exception $previous = null)
     {
         $this->templateName = $templateName;
-        parent::__construct(sprintf('Unknown template: %s', $templateName));
+        $message = sprintf('Unknown template: %s', $templateName);
+        if (version_compare(PHP_VERSION, '5.3.0', '>=')) {
+            parent::__construct($message, 0, $previous);
+        } else {
+            parent::__construct($message);         }
     }
     public function getTemplateName()
     {
@@ -1167,7 +1203,7 @@ class Mustache_Loader_FilesystemLoader implements Mustache_Loader
         if (strpos($this->baseDir, '://') === false) {
             $this->baseDir = realpath($this->baseDir);
         }
-        if (!is_dir($this->baseDir)) {
+        if ($this->shouldCheckPath() && !is_dir($this->baseDir)) {
             throw new Mustache_Exception_RuntimeException(sprintf('FilesystemLoader baseDir must be a directory: %s', $baseDir));
         }
         if (array_key_exists('extension', $options)) {
@@ -1188,7 +1224,7 @@ class Mustache_Loader_FilesystemLoader implements Mustache_Loader
     protected function loadFile($name)
     {
         $fileName = $this->getFileName($name);
-        if (!file_exists($fileName)) {
+        if ($this->shouldCheckPath() && !file_exists($fileName)) {
             throw new Mustache_Exception_UnknownTemplateException($name);
         }
         return file_get_contents($fileName);
@@ -1200,6 +1236,10 @@ class Mustache_Loader_FilesystemLoader implements Mustache_Loader
             $fileName .= $this->extension;
         }
         return $fileName;
+    }
+    protected function shouldCheckPath()
+    {
+        return strpos($this->baseDir, '://') === false || strpos($this->baseDir, 'file://') === 0;
     }
 }
 class Mustache_Loader_InlineLoader implements Mustache_Loader
@@ -1333,7 +1373,7 @@ class Mustache_Logger_StreamLogger extends Mustache_Logger_AbstractLogger
     }
     public function __destruct()
     {
-        if (is_resource($this->stream)) {
+        if (is_rsource($this->stream)) {
             fclose($this->stream);
         }
     }
@@ -1484,7 +1524,7 @@ class Mustache_Parser
                     break;
                 case Mustache_Tokenizer::T_BLOCK_VAR:
                     if ($this->pragmaBlocks) {
-                                                if ($parent[Mustache_Tokenizer::TYPE] === Mustache_Tokenizer::T_PARENT) {
+                                                if (isset($parent) && $parent[Mustache_Tokenizer::TYPE] === Mustache_Tokenizer::T_PARENT) {
                             $token[Mustache_Tokenizer::TYPE] = Mustache_Tokenizer::T_BLOCK_ARG;
                         }
                         $this->clearStandaloneLines($nodes, $tokens);
@@ -1556,7 +1596,7 @@ class Mustache_Parser
     }
     private function checkIfTokenIsAllowedInParent($parent, array $token)
     {
-        if ($parent[Mustache_Tokenizer::TYPE] === Mustache_Tokenizer::T_PARENT) {
+        if (isset($parent) && $parent[Mustache_Tokenizer::TYPE] === Mustache_Tokenizer::T_PARENT) {
             throw new Mustache_Exception_SyntaxException('Illegal content in < parent tag', $token);
         }
     }
@@ -1688,12 +1728,14 @@ class Mustache_Tokenizer
     private $seenTag;
     private $line;
     private $otag;
-    private $ctag;
+    private $otagChar;
     private $otagLen;
+    private $ctag;
+    private $ctagChar;
     private $ctagLen;
     public function scan($text, $delimiters = null)
     {
-                        $encoding = null;
+                                        $encoding = null;
         if (function_exists('mb_internal_encoding') && ini_get('mbstring.func_overload') & 2) {
             $encoding = mb_internal_encoding();
             mb_internal_encoding('ASCII');
@@ -1706,12 +1748,12 @@ class Mustache_Tokenizer
         for ($i = 0; $i < $len; $i++) {
             switch ($this->state) {
                 case self::IN_TEXT:
-                    if ($this->tagChange($this->otag, $this->otagLen, $text, $i)) {
+                    $char = $text[$i];
+                                        if ($char === $this->otagChar && substr($text, $i, $this->otagLen) === $this->otag) {
                         $i--;
                         $this->flushBuffer();
                         $this->state = self::IN_TAG_TYPE;
                     } else {
-                        $char = $text[$i];
                         $this->buffer .= $char;
                         if ($char === "\n") {
                             $this->flushBuffer();
@@ -1744,7 +1786,8 @@ class Mustache_Tokenizer
                     $this->seenTag = $i;
                     break;
                 default:
-                    if ($this->tagChange($this->ctag, $this->ctagLen, $text, $i)) {
+                    $char = $text[$i];
+                                        if ($char === $this->ctagChar && substr($text, $i, $this->ctagLen) === $this->ctag) {
                         $token = array(
                             self::TYPE  => $this->tagType,
                             self::NAME  => trim($this->buffer),
@@ -1784,29 +1827,31 @@ class Mustache_Tokenizer
                         $this->state = self::IN_TEXT;
                         $this->tokens[] = $token;
                     } else {
-                        $this->buffer .= $text[$i];
+                        $this->buffer .= $char;
                     }
                     break;
             }
         }
         $this->flushBuffer();
-                if ($encoding) {
+                        if ($encoding) {
             mb_internal_encoding($encoding);
         }
         return $this->tokens;
     }
     private function reset()
     {
-        $this->state   = self::IN_TEXT;
-        $this->tagType = null;
-        $this->buffer  = '';
-        $this->tokens  = array();
-        $this->seenTag = false;
-        $this->line    = 0;
-        $this->otag    = '{{';
-        $this->ctag    = '}}';
-        $this->otagLen = 2;
-        $this->ctagLen = 2;
+        $this->state    = self::IN_TEXT;
+        $this->tagType  = null;
+        $this->buffer   = '';
+        $this->tokens   = array();
+        $this->seenTag  = false;
+        $this->line     = 0;
+        $this->otag     = '{{';
+        $this->otagChar = '{';
+        $this->otagLen  = 2;
+        $this->ctag     = '}}';
+        $this->ctagChar = '}';
+        $this->ctagLen  = 2;
     }
     private function flushBuffer()
     {
@@ -1824,20 +1869,30 @@ class Mustache_Tokenizer
         $startIndex = strpos($text, '=', $index) + 1;
         $close      = '=' . $this->ctag;
         $closeIndex = strpos($text, $close, $index);
-        $this->setDelimiters(trim(substr($text, $startIndex, $closeIndex - $startIndex)));
-        $this->tokens[] = array(
+        $token = array(
             self::TYPE => self::T_DELIM_CHANGE,
             self::LINE => $this->line,
         );
+        try {
+            $this->setDelimiters(trim(substr($text, $startIndex, $closeIndex - $startIndex)));
+        } catch (Mustache_Exception_InvalidArgumentException $e) {
+            throw new Mustache_Exception_SyntaxException($e->getMessage(), $token);
+        }
+        $this->tokens[] = $token;
         return $closeIndex + strlen($close) - 1;
     }
     private function setDelimiters($delimiters)
     {
-        list($otag, $ctag) = explode(' ', $delimiters);
-        $this->otag = $otag;
-        $this->ctag = $ctag;
-        $this->otagLen = strlen($otag);
-        $this->ctagLen = strlen($ctag);
+        if (!preg_match('/^\s*(\S+)\s+(\S+)\s*$/', $delimiters, $matches)) {
+            throw new Mustache_Exception_InvalidArgumentException(sprintf('Invalid delimiters: %s', $delimiters));
+        }
+        list($_, $otag, $ctag) = $matches;
+        $this->otag     = $otag;
+        $this->otagChar = $otag[0];
+        $this->otagLen  = strlen($otag);
+        $this->ctag     = $ctag;
+        $this->ctagChar = $ctag[0];
+        $this->ctagLen  = strlen($ctag);
     }
     private function addPragma($text, $index)
     {
@@ -1849,9 +1904,5 @@ class Mustache_Tokenizer
             self::LINE => 0,
         ));
         return $end + $this->ctagLen - 1;
-    }
-    private function tagChange($tag, $tagLen, $text, $index)
-    {
-        return substr($text, $index, $tagLen) === $tag;
     }
 }

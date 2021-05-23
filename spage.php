@@ -169,7 +169,7 @@ class Spage {
     }
     elseif ($data['allow_comments'] === 'moderate_comments') {
       unset($new_page['allow_comments_checked']);
-      unset($new_page['disallow_comments_checked'])
+      unset($new_page['disallow_comments_checked']);
       $new_page['moderate_comments_checked'] = 'checked';
     }
     elseif ($data['allow_comments'] === 'disallow_comments') {
@@ -312,7 +312,7 @@ class Spage {
     }
     elseif ($data['allow_comments'] === 'moderate_comments') {
       unset($data['allow_comments_checked']);
-      unset($data['disallow_comments_checked'])
+      unset($data['disallow_comments_checked']);
       $data['moderate_comments_checked'] = 'checked';
     }
     elseif ($data['allow_comments'] === 'disallow_comments') {
@@ -510,7 +510,6 @@ class Spage {
       $affected_pages[] = $comment[0];
     }
     $affected_pages = array_unique($affected_pages);
-
     // Open each affected page
     foreach ($affected_pages as $page) {
       $page_content = $this->get_page($page . self::DATA_EXT);
@@ -520,11 +519,10 @@ class Spage {
       // Loop through all comments in current page
       $comments_count = count($page_content[$type]);
       for ($i = 0; $i < $comments_count; $i++) {
-        // If current comment UUID is marked for deletion > unset
+        // If current comment is listed in comments which need actions
         if (in_array($page_content[$type][$i]['uuid'], $moderated_comments)) {
-          // if comment is marked for approvel (from queue to publish), then
-          // first move that comment to comments array
-          if ($page_content[$type][$i]['uuid'] == 'publish') {
+          // commenct selected to be published are moved from queue to comments
+          if ($_REQUEST[$page_content[$type][$i]['uuid']] == 'publish') {
             $page_content['comments'][] = $page_content['comment_queue'][$i];
             $page_content['comments'] = $this->aasort(
               $page_content['comments'],
@@ -532,7 +530,8 @@ class Spage {
             );
             unset($page_content[$type][$i]);
           }
-          elseif ($page_content[$type][$i]['uuid'] == 'publish') {
+          // comments selected to be deleted, are deleted
+          elseif ($_REQUEST[$page_content[$type][$i]['uuid']] == 'delete') {
             unset($page_content[$type][$i]);
           }
 
