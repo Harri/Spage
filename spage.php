@@ -18,11 +18,13 @@ require 'templates.php';
 require 'admin_templates.php';
 
 date_default_timezone_set('Europe/Helsinki');
+
 use \Michelf\Markdown;
 
 $m = new Mustache_Engine;
 
-class Spage {
+class Spage
+{
 
   const TRASH_DIR = 'trash';
   const FEED_ITEMS = 5;
@@ -69,7 +71,8 @@ class Spage {
    * @param bool $update_feed (default: TRUE)
    * @return int
    */
-  public function add_new_page($data, $template, $overwrite = FALSE, $update_feed = TRUE) {
+  public function add_new_page($data, $template, $overwrite = FALSE, $update_feed = TRUE)
+  {
     $data['url'] = mb_substr($data['url'], 0, self::MAX_FILE_NAME_LENGTH);
     $data['url'] = $this->validate_filename($data['url']);
     $data['title'] = htmlspecialchars($data['title']);
@@ -114,7 +117,11 @@ class Spage {
         );
       }
 
-      if ($data_file_added !== self::OK || $page_file_added !== self::OK) {
+      if (
+        $data_file_added !== self::OK ||
+        isset($page_file_added) &&
+        $page_file_added !== self::OK
+      ) {
         return self::ERR;
       }
 
@@ -134,7 +141,8 @@ class Spage {
    * @access public
    * @param string $template
    */
-  public function refresh_front_page($template) {
+  public function refresh_front_page($template)
+  {
     $current_front = $this->get_page('index' . self::DATA_EXT);
     if ($current_front && $current_front != array()) {
       $this->create_front_page($current_front, $template, TRUE);
@@ -149,7 +157,8 @@ class Spage {
    * @param string $template
    * @return int
    */
-  public function edit_page($data, $template) {
+  public function edit_page($data, $template)
+  {
     $orig_page = $this->get_page($data['url'] . self::DATA_EXT);
     $new_page = array_merge($orig_page, $data);
 
@@ -166,18 +175,15 @@ class Spage {
     if (!isset($data['allow_comments'])) {
       unset($new_page['allow_comments']);
       unset($new_page['allow_comments_checked']);
-    }
-    elseif ($data['allow_comments'] === 'moderate_comments') {
+    } elseif ($data['allow_comments'] === 'moderate_comments') {
       unset($new_page['allow_comments_checked']);
       unset($new_page['disallow_comments_checked']);
       $new_page['moderate_comments_checked'] = 'checked';
-    }
-    elseif ($data['allow_comments'] === 'disallow_comments') {
+    } elseif ($data['allow_comments'] === 'disallow_comments') {
       unset($new_page['allow_comments_checked']);
       unset($new_page['moderate_comments_checked']);
       $new_page['disallow_comments_checked'] = 'checked';
-    }
-    elseif ($data['allow_comments'] === 'allow_comments') {
+    } elseif ($data['allow_comments'] === 'allow_comments') {
       unset($new_page['disallow_comments_checked']);
       unset($new_page['moderate_comments_checked']);
       $new_page['allow_comments_checked'] = 'checked';
@@ -194,7 +200,7 @@ class Spage {
     # Ideally it should be checked that the overall size of the history is not
     # gigantic. Until then, 100 old versions should be enough.
     if (count($new_page['history']) > 100) {
-       array_shift($new_page['history']);
+      array_shift($new_page['history']);
     }
 
     $error = $this->add_new_page($new_page, $template, TRUE);
@@ -212,7 +218,8 @@ class Spage {
    * @param string $template
    * @return int
    */
-  public function create_front_page($data, $template, $preserve_ts = FALSE) {
+  public function create_front_page($data, $template, $preserve_ts = FALSE)
+  {
     $page_list = $this->list_all_pages();
     $page_list = $page_list['pages'];
 
@@ -265,16 +272,25 @@ class Spage {
    * @param string $template_with_comments
    * @return void
    */
-  public function rebuild_pages($template, $template_with_comments) {
+  public function rebuild_pages(
+    $template,
+    $template_with_comments,
+    $template_with_moderation
+  ) {
     $page_list = $this->list_all_pages();
     foreach ($page_list as $type => $item) {
       foreach ($item as $page => $content) {
         // If page has comments enabled, let's use proper template
         if (
           isset($content['allow_comments']) &&
-          $content['allow_comments'] != 'disallow_comments'
+          $content['allow_comments'] == 'allow_comments'
         ) {
           $template = $template_with_comments;
+        } elseif (
+          isset($content['allow_comments']) &&
+          $content['allow_comments'] == 'moderate_comments'
+        ) {
+          $template = $template_with_moderation;
         }
         $this->add_new_page($content, $template, TRUE);
       }
@@ -292,11 +308,14 @@ class Spage {
    * @param string $page
    * @return array
    */
-  public function get_page($page) {
+  public function get_page($page)
+  {
     $page = mb_substr($page, 0, self::MAX_FILE_NAME_LENGTH);
-    if (!$this->starts_with($page, '/') &&
-      !$this->starts_with($page, '\\') &&
-      $this->ends_with($page, self::DATA_EXT) && is_file($page)) {
+    if (
+      !str_starts_with($page, '/') &&
+      !str_starts_with($page, '\\') &&
+      str_ends_with($page, self::DATA_EXT) && is_file($page)
+    ) {
       $data = $this->read_from_file($page);
       if (isset($data['draft']) && $data['draft'] === 'draft') {
         $data['draft_checked'] = 'checked';
@@ -306,25 +325,22 @@ class Spage {
         $data['unlisted_checked'] = 'checked';
       }
 
-    if (!isset($data['allow_comments'])) {
-      unset($data['allow_comments']);
-      unset($data['allow_comments_checked']);
-    }
-    elseif ($data['allow_comments'] === 'moderate_comments') {
-      unset($data['allow_comments_checked']);
-      unset($data['disallow_comments_checked']);
-      $data['moderate_comments_checked'] = 'checked';
-    }
-    elseif ($data['allow_comments'] === 'disallow_comments') {
-      unset($data['allow_comments_checked']);
-      unset($data['moderate_comments_checked']);
-      $data['disallow_comments_checked'] = 'checked';
-    }
-    elseif ($data['allow_comments'] === 'allow_comments') {
-      unset($data['disallow_comments_checked']);
-      unset($data['moderate_comments_checked']);
-      $data['allow_comments_checked'] = 'checked';
-    }
+      if (!isset($data['allow_comments'])) {
+        unset($data['allow_comments']);
+        unset($data['allow_comments_checked']);
+      } elseif ($data['allow_comments'] === 'moderate_comments') {
+        unset($data['allow_comments_checked']);
+        unset($data['disallow_comments_checked']);
+        $data['moderate_comments_checked'] = 'checked';
+      } elseif ($data['allow_comments'] === 'disallow_comments') {
+        unset($data['allow_comments_checked']);
+        unset($data['moderate_comments_checked']);
+        $data['disallow_comments_checked'] = 'checked';
+      } elseif ($data['allow_comments'] === 'allow_comments') {
+        unset($data['disallow_comments_checked']);
+        unset($data['moderate_comments_checked']);
+        $data['allow_comments_checked'] = 'checked';
+      }
       return $data;
     }
     return array();
@@ -337,10 +353,13 @@ class Spage {
    * @param string $page
    * @return void
    */
-  public function delete_page($page) {
-    if (!$this->starts_with($page, '/') &&
-      !$this->starts_with($page, '\\') &&
-      $this->ends_with($page, self::DATA_EXT) && is_file($page)) {
+  public function delete_page($page)
+  {
+    if (
+      !str_starts_with($page, '/') &&
+      !str_starts_with($page, '\\') &&
+      str_ends_with($page, self::DATA_EXT) && is_file($page)
+    ) {
       rename(
         dirname(__FILE__) . DIRECTORY_SEPARATOR . $page,
         dirname(__FILE__) . DIRECTORY_SEPARATOR . self::TRASH_DIR . DIRECTORY_SEPARATOR . $page
@@ -365,7 +384,8 @@ class Spage {
    * @param string $template
    * @return int
    */
-  public function create_rss_feed($template) {
+  public function create_rss_feed($template)
+  {
     $page_list = $this->list_all_pages();
     $page_list = $page_list['pages'];
     $page_list = $this->aasort($page_list, 'timestamp');
@@ -394,7 +414,8 @@ class Spage {
    * @param string $template
    * @return int
    */
-  public function create_sitemap($template) {
+  public function create_sitemap($template)
+  {
     $page_list = $this->list_all_pages();
     $page_list = $page_list['pages'];
     $page_list = $this->aasort($page_list, 'timestamp');
@@ -402,7 +423,8 @@ class Spage {
     $data = array('pages' => $page_list);
 
     $bytes_written = $this->write_to_file(
-      'sitemap.txt', $GLOBALS['m']->render($template, $data)
+      'sitemap.txt',
+      $GLOBALS['m']->render($template, $data)
     );
     if (!$bytes_written) {
       return self::ERR;
@@ -418,7 +440,8 @@ class Spage {
    * @access public
    * @return array
    */
-  public function list_all_pages() {
+  public function list_all_pages()
+  {
     $dir = scandir('.');
     $pages = array();
     $drafts = array();
@@ -426,7 +449,7 @@ class Spage {
 
     foreach ($dir as $name) {
       if (
-        $this->ends_with($name, self::DATA_EXT) &&
+        str_ends_with($name, self::DATA_EXT) &&
         $name !== 'index' . self::DATA_EXT
       ) {
         $content = $this->read_from_file($name);
@@ -460,7 +483,8 @@ class Spage {
    * @param string $type
    * @return array
    */
-  public function list_all_comments($limit = FALSE, $amount = 0, $type='comments') {
+  public function list_all_comments($limit = FALSE, $amount = 0, $type = 'comments')
+  {
     $all_pages = $this->list_all_pages();
     $comments = array();
 
@@ -501,7 +525,8 @@ class Spage {
    * @param string $type
    * @return void
    */
-  public function moderate_comments($moderated_comments, $type='comments') {
+  public function moderate_comments($moderated_comments, $type = 'comments')
+  {
     $affected_pages = array();
     // Get list of affected pages
     foreach ($moderated_comments as $comment) {
@@ -534,7 +559,6 @@ class Spage {
           elseif ($_REQUEST[$page_content[$type][$i]['uuid']] == 'delete') {
             unset($page_content[$type][$i]);
           }
-
         }
       }
       // Reset comment indexes, remove comments section if none is left
@@ -554,7 +578,7 @@ class Spage {
         $this->write_to_file(
           $page_content['url'] . Spage::PAGE_EXT,
           $GLOBALS['m']->render(
-            $GLOBALS['default_template_with_comments'],
+            $GLOBALS['moderate_template_with_comments'],
             $page_content
           )
         );
@@ -562,7 +586,8 @@ class Spage {
     }
   }
 
-  public function publish_comments($good_comments) {
+  public function publish_comments($good_comments)
+  {
     $affected_pages = array();
     // Get list of affected pages
     foreach ($good_comments as $comment) {
@@ -614,36 +639,10 @@ class Spage {
    * @param string $raw_filename
    * @return string
    */
-  public function validate_filename($raw_filename) {
-    $valid_filename = mb_ereg_replace("([^a-zA-Z0-9-_,.])", '_', $raw_filename);
+  public function validate_filename($raw_filename)
+  {
+    $valid_filename = mb_ereg_replace("([^a-zA-Z0-9-_,.\-])", '_', $raw_filename);
     return $valid_filename;
-  }
-
-  /**
-   * Helper function to verify if string ends with given substring
-   *
-   * @access public
-   * @param string $haystack
-   * @param string $needle
-   * @return string
-   */
-  public function ends_with($haystack, $needle) {
-    $length = mb_strlen($needle);
-    $start = $length * -1;
-    return (mb_substr($haystack, $start) === $needle);
-  }
-
-  /**
-   * Helper function to verify if string starts with given substring
-   *
-   * @access public
-   * @param string $haystack
-   * @param string $needle
-   * @return string
-   */
-  public function starts_with($haystack, $needle) {
-    $length = mb_strlen($needle);
-    return (mb_substr($haystack, 0, $length) === $needle);
   }
 
   /**
@@ -652,25 +651,14 @@ class Spage {
    *
    * @access public
    * @param array &$array
-   * @param string $key
+   * @param string $sort_key
    * @return array
    */
-  public function aasort(&$array, $sort_key) {
-    $sorter = array();
-    $sorted = array();
-    reset($array);
-
-    foreach ($array as $key => $va) {
-      $sorter[$key] = $va[$sort_key];
-    }
-
-    asort($sorter);
-
-    foreach ($sorter as $key => $va) {
-      $sorted[$key] = $array[$key];
-    }
-
-    return $sorted;
+  public function aasort(&$array, $sort_key)
+  {
+    $keys = array_column($array, $sort_key);
+    array_multisort($keys, SORT_ASC, $array);
+    return $array;
   }
 
   /**
@@ -681,7 +669,8 @@ class Spage {
    * @param string $content
    * @return int
    */
-  public function write_to_file($name, $content) {
+  public function write_to_file($name, $content)
+  {
     $bytes_written = file_put_contents(
       dirname(__FILE__) . DIRECTORY_SEPARATOR . $name,
       $content,
@@ -701,7 +690,8 @@ class Spage {
    * @param string $name
    * @return mixed
    */
-  private function read_from_file($name) {
+  private function read_from_file($name)
+  {
     $data = unserialize(
       file_get_contents(
         dirname(__FILE__) . DIRECTORY_SEPARATOR . $name,
@@ -737,147 +727,163 @@ if ($current_file === $this_file) {
 
   // If no 'operation' parameters is not set or if referer is not self,
   // 'operation' is set to empty (blocks CSRF vulnerability).
-  if (!isset($_REQUEST['operation']) || !$s->starts_with(
-    $http_referer_without_protocol,
-    $_SERVER['SERVER_NAME'] . $_SERVER['PHP_SELF'])
+  if (
+    !isset($_REQUEST['operation']) || !str_starts_with(
+      $http_referer_without_protocol,
+      $_SERVER['SERVER_NAME'] . $_SERVER['PHP_SELF']
+    )
   ) {
     $_REQUEST['operation'] = '';
   }
 
   switch ($_REQUEST['operation']) {
-  case 'create_page':
-    if (
-      isset($_POST['allow_comments']) &&
-      $_POST['allow_comments'] != 'disallow_comments'
-    ) {
-      $template = $default_template_with_comments;
-    } else {
-      $template = $default_template;
-    }
-    $error_code = $s->add_new_page(
-      $_POST,
-      $template,
-      isset($_POST['overwrite'])
-    );
-    if ($error_code === Spage::ERR) {
-      $message = 'Something went wrong. Maybe page with same name already exists?';
-      $template = $admin_template;
-      $page = $_POST;
-    } else {
-      $message = 'Page created.';
-      $template = $admin_continue_template;
-      $page = $s->get_page($s->validate_filename($_POST['url']) . Spage::DATA_EXT);
-    }
+    case 'create_page':
+      if (
+        isset($_POST['allow_comments']) &&
+        $_POST['allow_comments'] === 'allow_comments'
+      ) {
+        $template = $default_template_with_comments;
+      } elseif (
+        isset($_POST['allow_comments']) &&
+        $_POST['allow_comments'] === 'moderate_comments'
+      ) {
+        $template = $moderate_template_with_comments;
+      } else {
+        $template = $default_template;
+      }
+      $error_code = $s->add_new_page(
+        $_POST,
+        $template,
+        isset($_POST['overwrite'])
+      );
+      if ($error_code === Spage::ERR) {
+        $message = 'Something went wrong. Maybe page with same name already exists?';
+        $template = $admin_template;
+        $page = $_POST;
+      } else {
+        $message = 'Page created.';
+        $template = $admin_continue_template;
+        $page = $s->get_page($s->validate_filename($_POST['url']) . Spage::DATA_EXT);
+      }
 
-    $page['message'] = $message;
-    echo $m->render($template, $page);
-    break;
-  case 'save_page':
-    if (
-      isset($_POST['allow_comments']) &&
-      $_POST['allow_comments'] != 'disallow_comments'
-    ) {
-      $template = $default_template_with_comments;
-    } else {
-      $template = $default_template;
-    }
-    $error_code = $s->edit_page($_POST, $template);
-    if ($error_code === Spage::ERR) {
-      $message = 'Something went wrong while saving the page.';
-    } else {
-      $message = 'Page saved.';
-    }
-    $page = $s->get_page($s->validate_filename($_POST['url']) . Spage::DATA_EXT);
-    $page['message'] = $message;
-    echo $m->render($admin_continue_template, $page);
-    break;
-  case 'edit_front_page':
-    $data = $s->get_page('index' . Spage::DATA_EXT);
-    echo $m->render($admin_front_page_template, $data);
-    break;
-  case 'create_front_page':
-    $s->create_front_page($_POST, $front_page_template);
-    echo $m->render(
-      $admin_template,
-      array('message' => 'Front page created.')
-    );
-    break;
-  case 'rebuild_pages':
-    $s->rebuild_pages($default_template, $default_template_with_comments);
-    echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
-    break;
-  case 'list_pages':
-    $data['all_pages'] = $s->list_all_pages();
-    echo $m->render($admin_page_list_template, $data);
-    break;
-  case 'edit_page':
-    $data = $s->get_page($s->validate_filename($_GET['page']) . Spage::DATA_EXT);
-    echo $m->render($admin_edit_template, $data);
-    break;
-  case 'delete_page':
-    $s->delete_page($s->validate_filename($_GET['page']) . Spage::DATA_EXT);
-    echo $m->render($admin_template, array('message' => 'Page deleted.'));
-    break;
-  case 'list_comments':
-    $comments = $s->list_all_comments(TRUE, Spage::MAX_COMMENTS_SHOWN);
-    $comments['message'] = '<p>
+      $page['message'] = $message;
+      echo $m->render($template, $page);
+      break;
+    case 'save_page':
+      if (
+        isset($_POST['allow_comments']) &&
+        $_POST['allow_comments'] === 'allow_comments'
+      ) {
+        $template = $default_template_with_comments;
+      } elseif (
+        isset($_POST['allow_comments']) &&
+        $_POST['allow_comments'] === 'moderate_comments'
+      ) {
+        $template = $moderate_template_with_comments;
+      } else {
+        $template = $default_template;
+      }
+      $error_code = $s->edit_page($_POST, $template);
+      if ($error_code === Spage::ERR) {
+        $message = 'Something went wrong while saving the page.';
+      } else {
+        $message = 'Page saved.';
+      }
+      $page = $s->get_page($s->validate_filename($_POST['url']) . Spage::DATA_EXT);
+      $page['message'] = $message;
+      echo $m->render($admin_continue_template, $page);
+      break;
+    case 'edit_front_page':
+      $data = $s->get_page('index' . Spage::DATA_EXT);
+      echo $m->render($admin_front_page_template, $data);
+      break;
+    case 'create_front_page':
+      $s->create_front_page($_POST, $front_page_template);
+      echo $m->render(
+        $admin_template,
+        array('message' => 'Front page created.')
+      );
+      break;
+    case 'rebuild_pages':
+      $s->rebuild_pages(
+        $default_template,
+        $default_template_with_comments,
+        $moderate_template_with_comments
+      );
+      echo $m->render($admin_template, array('message' => 'Rebuilt pages.'));
+      break;
+    case 'list_pages':
+      $data['all_pages'] = $s->list_all_pages();
+      echo $m->render($admin_page_list_template, $data);
+      break;
+    case 'edit_page':
+      $data = $s->get_page($s->validate_filename($_GET['page']) . Spage::DATA_EXT);
+      echo $m->render($admin_edit_template, $data);
+      break;
+    case 'delete_page':
+      $s->delete_page($s->validate_filename($_GET['page']) . Spage::DATA_EXT);
+      echo $m->render($admin_template, array('message' => 'Page deleted.'));
+      break;
+    case 'list_comments':
+      $comments = $s->list_all_comments(TRUE, Spage::MAX_COMMENTS_SHOWN);
+      $comments['message'] = '<p>
         Only ' . Spage::MAX_COMMENTS_SHOWN . ' latest comments are shown.
         <a href="spage.php?operation=list_all_comments">List all comments</a>.
         </p>';
-    echo $m->render($admin_list_comments_template, $comments);
-    break;
-  case 'list_comments_in_queue':
-    $comments = $s->list_all_comments(TRUE, Spage::MAX_COMMENTS_SHOWN, 'comment_queue');
-    $comments['message'] = '<p>
+      echo $m->render($admin_list_comments_template, $comments);
+      break;
+    case 'list_comments_in_queue':
+      $comments = $s->list_all_comments(TRUE, Spage::MAX_COMMENTS_SHOWN, 'comment_queue');
+      $comments['message'] = '<p>
         Only ' . Spage::MAX_COMMENTS_SHOWN . ' latest comments in queue are shown.
         <a href="spage.php?operation=list_all_comments_in_queue">List all comments in queue</a>.
         </p>';
-    echo $m->render($admin_comment_queue_template, $comments);
-    break;
-  case 'list_all_comments':
-    $comments = $s->list_all_comments();
-    echo $m->render($admin_list_comments_template, $comments);
-    break;
-  case 'list_all_comments_in_queue':
-    $queue = $s->list_all_comments(FALSE, 0, 'comment_queue');
-    echo $m->render($admin_comment_queue_template, $queue);
-    break;
-  case 'delete_comments':
-    $comments = $_POST;
-    unset($comments['operation']);
-    $comments = array_keys($comments);
-    $s->moderate_comments($comments);
-    echo $m->render($admin_template, array('message' => 'Comments deleted.'));
-    break;
-  case 'moderate_comments':
-    $comments = $_POST;
-    unset($comments['operation']);
-    $comments = array_keys($comments);
-    $s->moderate_comments($comments, 'comment_queue');
-    echo $m->render($admin_template, array('message' => 'Comments deleted and/or approved.'));
-    break;
-  case 'history':
-    $page_with_history = $s->get_page(
-      $s->validate_filename($_POST['url'] . Spage::DATA_EXT)
-    );
-    $page = '';
-    foreach ($page_with_history['history'] as $version) {
-      if ($version['history_id'] === $_POST['history_id']) {
-        $page = $version;
-        break;
+      echo $m->render($admin_comment_queue_template, $comments);
+      break;
+    case 'list_all_comments':
+      $comments = $s->list_all_comments();
+      echo $m->render($admin_list_comments_template, $comments);
+      break;
+    case 'list_all_comments_in_queue':
+      $queue = $s->list_all_comments(FALSE, 0, 'comment_queue');
+      echo $m->render($admin_comment_queue_template, $queue);
+      break;
+    case 'delete_comments':
+      $comments = $_POST;
+      unset($comments['operation']);
+      $comments = array_keys($comments);
+      $s->moderate_comments($comments);
+      echo $m->render($admin_template, array('message' => 'Comments deleted.'));
+      break;
+    case 'moderate_comments':
+      $comments = $_POST;
+      unset($comments['operation']);
+      $comments = array_keys($comments);
+      $s->moderate_comments($comments, 'comment_queue');
+      echo $m->render($admin_template, array('message' => 'Comments deleted and/or approved.'));
+      break;
+    case 'history':
+      $page_with_history = $s->get_page(
+        $s->validate_filename($_POST['url'] . Spage::DATA_EXT)
+      );
+      $page = '';
+      foreach ($page_with_history['history'] as $version) {
+        if ($version['history_id'] === $_POST['history_id']) {
+          $page = $version;
+          break;
+        }
       }
-    }
-    if ($page === '') {
-      $page = array();
-      $page['message'] = 'Could not find given archived version.';
-    }
-    $page['message'] = 'Review and approve going back to selected version.';
-    $page['history'] = $page_with_history['history'];
-    echo $m->render($admin_edit_template, $page);
-    break;
-  default:
-    echo $m->render($admin_template, array());
-    break;
+      if ($page === '') {
+        $page = array();
+        $page['message'] = 'Could not find given archived version.';
+      }
+      $page['message'] = 'Review and approve going back to selected version.';
+      $page['history'] = $page_with_history['history'];
+      echo $m->render($admin_edit_template, $page);
+      break;
+    default:
+      echo $m->render($admin_template, array());
+      break;
   }
 }
 
@@ -905,4 +911,3 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
  */
-

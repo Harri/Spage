@@ -73,6 +73,55 @@ $default_template_with_comments = '<!doctype html>
 </body>
 </html>';
 
+$moderate_template_with_comments = '<!doctype html>
+<html lang="en">
+	<head>
+	<meta charset="utf-8">
+	<meta name="dcterms.created" content="{{date}}">
+	<title>{{title}}</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<form action="search.php" method="get" id="search_form">
+		<fieldset>
+			<legend>Search</legend>
+			<label for="terms">Search terms</label>
+			<input name="terms" id="terms" required="required">
+			<button type="submit">Search</button>
+		</fieldset>
+	</form>
+	<header>
+		<h1>{{title}}</h1>
+	</header>
+	{{{content_html}}}
+	<ol>
+		{{#comments}}
+		<li id="{{uuid}}">
+			<div class="comment_author">{{{author}}}</div>
+			<div class="comment">{{{comment}}}</div>
+			<div class="comment_time">{{date}} {{time}}</div>
+		</li>
+		{{/comments}}
+	</ol>
+
+	<form action="comments.php" method="post" id="comment_form">
+		<fieldset>
+			<p>Comments on this page are reviewed before publishing.</p>
+			<legend>Write new comment</legend>
+			<label for="author">Name and/or email address: </label>
+			<input maxlength="200" name="author" id="author" required="required">
+			<label for="message">Message: </label>
+			<textarea maxlength="10000" id="message" name="message" rows="20" required="required"></textarea>
+			<input type="hidden" name="page" value="{{url}}">
+			<button type="submit">Comment</button>
+		</fieldset>
+	</form>
+
+	<footer>
+	</footer>
+</body>
+</html>';
+
 $front_page_template = '<!doctype html>
 <html lang="en">
 	<head>

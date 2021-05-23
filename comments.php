@@ -21,7 +21,8 @@ define('MAX_MESSAGE_LENGTH', 10000);
  * @param string $comment
  * @return void
  */
-function comment($page_name, $author, $comment) {
+function comment($page_name, $author, $comment)
+{
   $s = new Spage;
   $page = $s->get_page($page_name . Spage::DATA_EXT);
   // Index page, non-existent pages and drafts can not have comments
@@ -77,20 +78,25 @@ function comment($page_name, $author, $comment) {
 
   if (
     isset($page['allow_comments']) &&
-    $page['allow_comments'] === 'moderate_comments') {
+    $page['allow_comments'] === 'moderate_comments'
+  ) {
     $page['comment_queue'][] = $comment;
-  }
-  else {
+  } else {
     $page['comments'][] = $comment;
   }
 
   // edit_page or add_new_page from Spage can not be used
   // since they modify the edit timestamps of the page.
   $s->write_to_file($page['url'] . Spage::DATA_EXT, serialize($page));
+  if ($page['allow_comments'] === 'moderate_comments') {
+    $template = 'moderate_template_with_comments';
+  } else {
+    $template = 'default_template_with_comments';
+  }
   $s->write_to_file(
     $page['url'] . Spage::PAGE_EXT,
     $GLOBALS['m']->render(
-      $GLOBALS['default_template_with_comments'],
+      $GLOBALS[$template],
       $page
     )
   );
@@ -107,7 +113,8 @@ function comment($page_name, $author, $comment) {
  * @param string $text
  * @return void
  */
-function url_to_link($text) {
+function url_to_link($text)
+{
   // Tries its best to match any URL.
   $regex = '#(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))#';
   $replace = '<a rel="nofollow" href="$1">$1</a>';
@@ -121,7 +128,8 @@ function url_to_link($text) {
  * @param string $text
  * @return void
  */
-function email_to_link($text) {
+function email_to_link($text)
+{
   $regex = '/(\S+@\S+\.\S+)/';
   $replace = '<a rel="nofollow" href="mailto:$1">$1</a>';
   return preg_replace($regex, $replace, $text);

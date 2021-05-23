@@ -8,6 +8,7 @@ define('MAX_TERMS', 10);
 define('MIN_TERM_LENGTH', 3);
 define('TITLE_HIT_POINTS', 10);
 define('CONTENT_HIT_POINTS', 1);
+define('COMMENT_HIT_POINTS', 0.5);
 
 /**
  * Search given words from all pages, not including drafts.
@@ -17,7 +18,8 @@ define('CONTENT_HIT_POINTS', 1);
  * @param array $terms
  * @return array
  */
-function search($terms) {
+function search($terms)
+{
   $s = new Spage;
 
   $pages = $s->list_all_pages();
@@ -41,6 +43,7 @@ function search($terms) {
  * Analyzes page relevancy against search terms.
  * Every title and url hit +10 points.
  * Every content hit +1 point.
+ * Every comment hit +0.5 points.
  *
  * Returns page with relevancy points.
  *
@@ -48,12 +51,20 @@ function search($terms) {
  * @param array $terms
  * @return array
  */
-function analyze_page($page, $terms) {
+function analyze_page($page, $terms)
+{
   $orig_page = $page;
   $page = array(
     'title' => $page['title'] . ' ' . $page['url'],
     'content' => $page['content'],
   );
+  if (array_key_exists('comments', $orig_page)) {
+    $page_comments = '';
+    foreach ($orig_page['comments'] as $comment) {
+      $page_comments = $page_comments . ' ' . implode(' ', $comment);
+    }
+    $page['comments'] = $page_comments;
+  }
   $terms = array_map('mb_strtolower', $terms);
   $terms = array_map('strip_tags', $terms);
   $page = array_map('mb_strtolower', $page);
@@ -71,6 +82,12 @@ function analyze_page($page, $terms) {
     $occurrences = mb_substr_count($page['content'], $term_value);
     if (!empty($occurrences)) {
       $orig_page['relevance'] = $orig_page['relevance'] + $occurrences * CONTENT_HIT_POINTS;
+    }
+    if (isset($orig_page['comments'])) {
+      $occurrences = mb_substr_count($page['comments'], $term_value);
+      if (!empty($occurrences)) {
+        $orig_page['relevance'] = $orig_page['relevance'] + $occurrences * COMMENT_HIT_POINTS;
+      }
     }
   }
 
